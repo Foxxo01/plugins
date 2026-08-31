@@ -45,6 +45,9 @@ const plugins = [
                         jsx,
                     },
                 },
+                module: {
+                    type: "es6",
+                },
                 env: {
                     targets: "defaults",
                     include: [
