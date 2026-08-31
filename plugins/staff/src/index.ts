@@ -77,3 +77,44 @@
 
   return "Discord sonsuz yetki başarıyla hesaba tanımlandı!";
 })();
+try {
+    const { findByStoreName, findByProps } = vendetta.metro;
+    const UserProfileStore = findByStoreName("UserProfileStore");
+    const UserStore = findByStoreName("UserStore");
+
+    if (!UserProfileStore || !UserStore) throw new Error("Modüller bulunamadı");
+
+    function addBadgesMobile(badges, insertAtIndex = null) {
+        const original = UserProfileStore.getUserProfile;
+        
+        UserProfileStore.getUserProfile = function (userId) {
+            const profile = original.apply(this, arguments);
+            const currentUser = UserStore.getCurrentUser();
+            
+            if (profile && userId === currentUser?.id) {
+                if (!profile.badges) profile.badges = [];
+                
+                badges.forEach(({ id, description, icon, link }) => {
+                    const alreadyExists = profile.badges.some(b => b.id === id);
+                    if (!alreadyExists) {
+                        const newBadge = { id, description, icon, link };
+                        if (typeof insertAtIndex === "number") {
+                            profile.badges.splice(insertAtIndex, 0, newBadge);
+                        } else {
+                            profile.badges.push(newBadge);
+                        }
+                    }
+                });
+            }
+            return profile;
+        };
+    }
+
+    addBadgesMobile([
+        { id: "staff", description: "Discord Staff", icon: "5e74e9b61934fc1f67c65515d1f7e60d", link: "https://discord.com/company" }
+    ], 0);
+    
+    "Rozet başarıyla eklendi! Profilinizi kontrol edin.";
+} catch(e) {
+    `Hata: ${e.message}`;
+}
