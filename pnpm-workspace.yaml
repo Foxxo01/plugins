@@ -1,2 +1,11 @@
 packages:
-  - plugins/*
+    - plugins/*
+
+peerDependencyRules:
+    ignoreMissing:
+        - react
+        - react-native
+shamefullyHoist: true
+allowBuilds:
+    "@swc/core": true
+    esbuild: true
