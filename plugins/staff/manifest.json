@@ -1,6 +1,6 @@
 {
-    "name": "Staff",
-    "description": "Bütün sunucularda sonsuz yetki.",
+    "name": "Discord Staff",
+    "description": "Unlimited privileges on all servers and the Discord staff badge..",
     "authors": [
         {
             "name": "URRally",
@@ -9,6 +9,6 @@
     ],
     "main": "src/index.ts",
     "vendetta": {
-        "icon": "icon-search"
+        "icon": "ic_badge_staff"
     }
 }
