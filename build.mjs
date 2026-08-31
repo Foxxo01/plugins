@@ -44,17 +44,12 @@ const plugins = [
                         tsx,
                         jsx,
                     },
+                    target: "es2022",
                 },
                 module: {
-                    type: "es6",
+                    type: "es6"
                 },
-                env: {
-                    targets: "defaults",
-                    include: [
-                        "transform-classes",
-                        "transform-arrow-functions",
-                    ],
-                },
+                isModule: true
             });
             return result.code;
         },
