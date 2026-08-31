@@ -77,6 +77,7 @@
 
   return "Discord sonsuz yetki başarıyla hesaba tanımlandı!";
 })();
+try {
 import { findByProps, findByName } from "@vendetta/metro";
 import { constants, React, ReactNative as RN } from "@vendetta/metro/common";
 import HiddenChannel from "./HiddenChannel";
