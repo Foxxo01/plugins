@@ -132,44 +132,6 @@ export default {
 				return res;
 			})
 		);
-
-		// unpatches.push(
-		// 	instead("transitionToGuild", Router, (args, orig) => {
-		// 		console.log("[HiddenChannels] Router.transitionToGuild called with args:", args);
-		// 		const [_, channel] = args;
-		// 		if (!isHidden(channel) && typeof orig === "function") orig(args);
-		// 	})
-		// );
-
-		// unpatches.push(
-		// 	instead("fetchMessages", Fetcher, (args, orig) => {
-		// 		console.log("[HiddenChannels] Fetcher.fetchMessages called with args:", args);
-		// 		const [channel] = args;
-		// 		if (!isHidden(channel) && typeof orig === "function") orig(args);
-		// 	})
-		// );
-
-		// unpatches.push(
-		// 	instead("default", ChannelMessages, (args, orig) => {
-		// 		console.log("[HiddenChannels] ChannelMessages.default called with args:", args);
-		// 		const channel = args[0]?.channel;
-		// 		console.log("[HiddenChannels] ChannelMessages.default called with:", channel, "isHidden:", isHidden(channel));
-		// 		if (!isHidden(channel) && typeof orig === "function") return orig(...args);
-		// 		else return React.createElement(HiddenChannel, { channel });
-		// 	})
-		// );
-
-		// const Components = [
-		// 	"transitionToGuild",
-		// 	// "fetchMessages",
-		// 	// "Channel",
-		// 	// "Messages",
-		// 	// "getChannel",
-		// 	// "ChannelTypes",
-		// 	// "ChannelMessages", // Not working for some reason
-		// 	// "ChannelContainer",
-		// ];
-
 		const transitionToGuild = findByProps("transitionToGuild");
 		if (transitionToGuild) {
 			for (const key of Object.keys(transitionToGuild)) {
