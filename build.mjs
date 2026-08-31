@@ -1,18 +1,29 @@
 import { readFile, writeFile, readdir } from "fs/promises";
-import { extname } from "path";
+import path, { extname } from "path";
 import { createHash } from "crypto";
 
 import { rollup } from "rollup";
 import esbuild from "rollup-plugin-esbuild";
 import commonjs from "@rollup/plugin-commonjs";
 import nodeResolve from "@rollup/plugin-node-resolve";
+import alias from "@rollup/plugin-alias";
 import swc from "@swc/core";
+import { fileURLToPath } from "url";
 
 const extensions = [".js", ".jsx", ".mjs", ".ts", ".tsx", ".cts", ".mts"];
 
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
 /** @type import("rollup").InputPluginOption */
 const plugins = [
-    nodeResolve(),
+    alias({
+        entries: [
+            {
+                find: "@lib", replacement: path.resolve(__dirname, "lib")
+            }
+        ]
+    }),
+    nodeResolve({ extensions }),
     commonjs(),
     {
         name: "swc",
