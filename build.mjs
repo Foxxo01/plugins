@@ -48,24 +48,23 @@ for (const entry of entries) {
     const outDir = path.join("dist", entry);
     await mkdir(outDir, { recursive: true });
 
-    // Dosya uzantısına göre loader seç
-    const ext = path.extname(indexPath).slice(1);
-    const loaderType = ext === "ts" || ext === "tsx" || ext === "jsx" ? ext : "js";
+    try {
+      await esbuild.build({
+        entryPoints: [indexPath],
+        bundle: true,
+        minify: true,
+        format: "esm",
+        target: "es2021",
+        outfile: path.join(outDir, "index.js"),
+        external: ["@vendetta", "@vendetta/*"]
+      });
 
-    await esbuild.build({
-      entryPoints: [indexPath],
-      bundle: true,
-      minify: true,
-      format: "esm",
-      target: "es2021",
-      loader: { [`.${ext}`]: loaderType },
-      outfile: path.join(outDir, "index.js"),
-      external: ["@vendetta", "@vendetta/*"]
-    });
+      const manifest = await readFile(manifestPath, "utf8");
+      await writeFile(path.join(outDir, "manifest.json"), manifest);
 
-    const manifest = await readFile(manifestPath, "utf8");
-    await writeFile(path.join(outDir, "manifest.json"), manifest);
-
-    console.log(`[BAŞARILI] ${entry} derlendi ve dist/${entry} klasörüne eklendi.`);
+      console.log(`[BAŞARILI] ${entry} derlendi ve dist/${entry} klasörüne eklendi.`);
+    } catch (err) {
+      console.error(`[HATA] ${entry} derlenirken kod hatası oluştu:`, err.message);
+    }
   }
 }
