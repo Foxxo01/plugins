@@ -14,7 +14,6 @@ if (!existsSync(pluginsDir)) {
 }
 
 const entries = await readdir(pluginsDir);
-console.log(`[BİLGİ] Bulunan elemanlar:`, entries);
 
 for (const entry of entries) {
   const pluginPath = path.join(pluginsDir, entry);
@@ -35,13 +34,7 @@ for (const entry of entries) {
     const indexPath = possiblePaths.find((p) => existsSync(p));
     const manifestPath = path.join(pluginPath, "manifest.json");
 
-    if (!indexPath) {
-      console.error(`[HATA] ${entry} içinde giriş dosyası BULUNAMADI!`);
-      continue;
-    }
-
-    if (!existsSync(manifestPath)) {
-      console.error(`[HATA] ${entry} içinde manifest.json BULUNAMADI!`);
+    if (!indexPath || !existsSync(manifestPath)) {
       continue;
     }
 
