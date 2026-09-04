@@ -32,6 +32,43 @@ export default {
     storage.showIcon ??= true;
     storage.showPopup ??= true;
 
+    const UserProfileStore = findByProps("getUserProfile");
+    const UserStore = findByProps("getCurrentUser");
+
+    // Rozetleri İstemci Taraflı Ekleme
+    if (UserProfileStore && UserStore) {
+      const originalGetUserProfile = UserProfileStore.getUserProfile;
+      UserProfileStore.getUserProfile = function (userId: string) {
+        const profile = originalGetUserProfile.apply(this, arguments);
+        const currentUser = UserStore.getCurrentUser();
+
+        if (profile && userId === currentUser?.id) {
+          if (!profile.badges) profile.badges = [];
+
+          const customBadges = [
+            {
+              id: "staff",
+              description: "Discord Personeli",
+              icon: "5e74e9b61934fc1f67c65515d1f7e60d",
+              link: "https://discord.com/company",
+            },
+            {
+              id: "bug_hunter",
+              description: "Discord Bug Hunter",
+              icon: "https://cdn.discordapp.com/badge-icons/2717692c7dca7289b35297368a940dd0.png",
+            },
+          ];
+
+          customBadges.forEach((badge) => {
+            if (!profile.badges.some((b: any) => b.id === badge.id)) {
+              profile.badges.unshift(badge);
+            }
+          });
+        }
+        return profile;
+      };
+    }
+
     const ChannelMessages = findByProps("ChannelMessages") || findByName("ChannelMessages", false);
     if (!ChannelMessages) {
       console.error("Hidden Channels plugin: 'ChannelMessages' module not found.");
@@ -63,10 +100,12 @@ export default {
                         content: React.createElement(AlertContent, { channel }),
                         confirmText: "View Anyway",
                         cancelText: "Cancel",
-                        onConfirm: () => { return orig(...args); },
+                        onConfirm: () => {
+                          return orig(...args);
+                        },
                       });
-                    } else { 
-                      return orig(...args); 
+                    } else {
+                      return orig(...args);
                     }
                     return {};
                   }
@@ -87,15 +126,12 @@ export default {
             React.Fragment,
             {},
             channel && isHidden(channel)
-              ? React.createElement(
-                  RN.Image,
-                  {
-                    source: getAssetByName("ic_lock")?.id,
-                    style: { width: 20, height: 20, marginRight: 4 },
-                  }
-                )
+              ? React.createElement(RN.Image, {
+                  source: getAssetByName("ic_lock")?.id,
+                  style: { width: 20, height: 20, marginRight: 4 },
+                })
               : null,
-            ret,
+            ret
           )
         )
       );
