@@ -3,6 +3,7 @@ import { readdir, readFile, writeFile, mkdir, stat } from "fs/promises";
 import { existsSync } from "fs";
 import path from "path";
 
+// dist klasörünü sıfırdan oluştur
 await mkdir("dist", { recursive: true });
 await writeFile("dist/.nojekyll", "");
 
@@ -62,9 +63,9 @@ for (const entry of entries) {
       const manifest = await readFile(manifestPath, "utf8");
       await writeFile(path.join(outDir, "manifest.json"), manifest);
 
-      console.log(`[BAŞARILI] ${entry} derlendi ve dist/${entry} klasörüne eklendi.`);
+      console.log(`[BAŞARILI] ${entry} derlendi ve dist/${entry} içine yazıldı.`);
     } catch (err) {
-      console.error(`[HATA] ${entry} derlenirken kod hatası oluştu:`, err.message);
+      console.error(`[HATA] ${entry} derlenirken hata oluştu:`, err.message);
     }
   }
 }
