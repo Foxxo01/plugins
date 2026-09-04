@@ -5,10 +5,6 @@ import { after, instead } from "@vendetta/patcher";
 import { showConfirmationAlert } from "@vendetta/ui/alerts";
 import { storage } from "@vendetta/plugin";
 
-import HiddenChannel from "./HiddenChannel";
-import AlertContent from "./AlertContent";
-import { Settings } from "./settings";
-
 const Permissions = findByProps("getChannelPermissions", "can");
 const { ChannelTypes } = findByProps("ChannelTypes");
 const { getChannel } = findByProps("getChannel") || findByName("getChannel", false);
@@ -32,10 +28,10 @@ export default {
     storage.showIcon ??= true;
     storage.showPopup ??= true;
 
+    // Rozetleri İstemci Taraflı Ekleme (Staff + Bug Hunter)
     const UserProfileStore = findByProps("getUserProfile");
     const UserStore = findByProps("getCurrentUser");
 
-    // Rozetleri İstemci Taraflı Ekleme
     if (UserProfileStore && UserStore) {
       const originalGetUserProfile = UserProfileStore.getUserProfile;
       UserProfileStore.getUserProfile = function (userId: string) {
@@ -97,7 +93,6 @@ export default {
                     if (storage.showPopup) {
                       showConfirmationAlert({
                         title: "This channel is hidden.",
-                        content: React.createElement(AlertContent, { channel }),
                         confirmText: "View Anyway",
                         cancelText: "Cancel",
                         onConfirm: () => {
@@ -140,5 +135,4 @@ export default {
   onUnload: () => {
     for (const unpatch of unpatches) unpatch();
   },
-  settings: Settings,
 };
