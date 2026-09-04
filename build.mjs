@@ -1,3 +1,4 @@
+await writeFile("dist/.nojekyll", "");
 import esbuild from "esbuild";
 import { readdir, readFile, writeFile, mkdir, stat } from "fs/promises";
 import { existsSync } from "fs";
