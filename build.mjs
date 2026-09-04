@@ -3,7 +3,7 @@ import { readdir, readFile, writeFile, mkdir, stat } from "fs/promises";
 import { existsSync } from "fs";
 import path from "path";
 
-await mkdir("dist", { recursive: true });
+await mkdir("dist/plugins", { recursive: true });
 await writeFile("dist/.nojekyll", "");
 
 const pluginsDir = "plugins";
@@ -38,22 +38,25 @@ for (const entry of entries) {
       continue;
     }
 
-    const outDir = path.join("dist", entry);
+    // Çıktıyı doğrudan dist/plugins/staff içerisine yönlendiriyoruz
+    const outDir = path.join("dist", "plugins", entry);
     await mkdir(outDir, { recursive: true });
 
     try {
       await esbuild.build({
         entryPoints: [indexPath],
         bundle: true,
-        minify: true,
+        minify: false, // Hata tespiti kolaylaşsın diye geçici olarak false
         format: "iife",
         globalName: "plugin",
         footer: {
-          js: "module.exports = plugin.default || plugin;",
+          js: "if (typeof plugin !== 'undefined') { module.exports = plugin.default || plugin; }",
         },
-        target: "es2021",
+        target: "es2017",
         outfile: path.join(outDir, "index.js"),
         jsx: "transform",
+        jsxFactory: "React.createElement",
+        jsxFragment: "React.Fragment",
         resolveExtensions: [".tsx", ".ts", ".jsx", ".js", ".json"],
         loader: {
           ".js": "jsx",
@@ -61,10 +64,18 @@ for (const entry of entries) {
           ".jsx": "jsx",
           ".tsx": "tsx",
         },
-        external: ["@vendetta", "@vendetta/*", "react", "react-native"],
+        external: [
+          "@vendetta",
+          "@vendetta/*",
+          "react",
+          "react-native",
+          "@metro",
+          "@metro/*",
+          "@ui",
+          "@ui/*"
+        ],
       });
 
-      // Manifest dosyasını oku, main alanını güncelle ve minify ederek yaz
       const manifestRaw = await readFile(manifestPath, "utf8");
       const manifestData = JSON.parse(manifestRaw);
       manifestData.main = "index.js";
@@ -74,7 +85,7 @@ for (const entry of entries) {
         JSON.stringify(manifestData)
       );
 
-      console.log(`[BAŞARILI] ${entry} derlendi ve manifest minify edildi! -> dist/${entry}`);
+      console.log(`[BAŞARILI] ${entry} -> dist/plugins/${entry} olarak derlendi.`);
     } catch (err) {
       console.error(`[BUILD HATASI] ${entry} derlenemedi:`, err.message);
     }
