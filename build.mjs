@@ -59,15 +59,22 @@ for (const entry of entries) {
           ".js": "jsx",
           ".ts": "tsx",
           ".jsx": "jsx",
-          ".tsx": "tsx"
+          ".tsx": "tsx",
         },
         external: ["@vendetta", "@vendetta/*", "react", "react-native"],
       });
 
-      const manifestData = await readFile(manifestPath, "utf8");
-      await writeFile(path.join(outDir, "manifest.json"), manifestData);
+      // Manifest dosyasını oku, main alanını güncelle ve minify ederek yaz
+      const manifestRaw = await readFile(manifestPath, "utf8");
+      const manifestData = JSON.parse(manifestRaw);
+      manifestData.main = "index.js";
 
-      console.log(`[BAŞARILI] ${entry} derlendi! -> dist/${entry}`);
+      await writeFile(
+        path.join(outDir, "manifest.json"),
+        JSON.stringify(manifestData)
+      );
+
+      console.log(`[BAŞARILI] ${entry} derlendi ve manifest minify edildi! -> dist/${entry}`);
     } catch (err) {
       console.error(`[BUILD HATASI] ${entry} derlenemedi:`, err.message);
     }
