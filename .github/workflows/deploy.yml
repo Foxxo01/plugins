@@ -11,12 +11,12 @@ jobs:
       contents: write
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - name: Prepare environment
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
-          node-version: 18
+          node-version: 20
 
       - run: npm install --global pnpm
 
@@ -29,14 +29,11 @@ jobs:
       - name: Copy additional files
         run: |
           cp README.md dist/README.md 2>/dev/null || true
-          printf -- "markdown: GFM\n" > dist/_config.yml
-          printf -- "---\npermalink: /404.html\n---\n" > dist/404.md
-          printf -- "> **Note:** You accessed a link that returned a 404.\n\n" >> dist/404.md
-          cat README.md >> dist/404.md 2>/dev/null || true
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./dist
+          force_orphan: true
           enable_jekyll: false
