@@ -5,9 +5,9 @@ import { after, instead } from "@vendetta/patcher";
 import { showConfirmationAlert } from "@vendetta/ui/alerts";
 import { storage } from "@vendetta/plugin";
 
-import HiddenChannel from "./HiddenChannel";
-import AlertContent from "./AlertContent";
-import { Settings } from "./settings";
+import HiddenChannel from "./HiddenChannel.tsx";
+import AlertContent from "./AlertContent.tsx";
+import { Settings } from "./settings.tsx";
 
 const Permissions = findByProps("getChannelPermissions", "can");
 const { ChannelTypes } = findByProps("ChannelTypes");
