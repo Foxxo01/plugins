@@ -9,6 +9,6 @@
     ],
     "main": "src/index.ts",
     "vendetta": {
-        "icon": "icon_search"
+        "icon": "ic_badge_staff"
     }
 }
