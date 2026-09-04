@@ -21,7 +21,7 @@ jobs:
       - run: npm install --global pnpm
 
       - name: Install deps
-        run: pnpm i
+        run: pnpm install
 
       - name: Build plugin(s)
         run: node ./build.mjs
@@ -36,5 +36,4 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./dist
           publish_branch: gh-pages
-          force_orphan: false
           enable_jekyll: false
