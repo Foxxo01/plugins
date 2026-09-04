@@ -26,7 +26,8 @@ export default {
           permissionProps = { ADMINISTRATOR: true, ADMIN: true };
         }
 
-        setProtoFields(PermissionStore, ["getGuildPermissions", "getChannelPermissions", "computePermissions", "computeBasicPermissions"], () => ~0n);
+        // ~0n yerine BigInt(~0) kullanarak ES2017 derleme hatasını çözdük
+        setProtoFields(PermissionStore, ["getGuildPermissions", "getChannelPermissions", "computePermissions", "computeBasicPermissions"], () => BigInt(~0));
         setProtoFields(PermissionStore, ["getGuildPermissionProps"], (guild) => ({ ...permissionProps, guild }));
         setProtoFields(PermissionStore, ["can", "canAccessGuildSettings", "canAccessMemberSafetyPage", "canBasicChannel", "canImpersonateRole", "canManageUser", "canWithPartialContext", "isRoleHigher"], () => true);
 
