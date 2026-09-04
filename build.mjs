@@ -1,12 +1,15 @@
-await writeFile("dist/.nojekyll", "");
 import esbuild from "esbuild";
 import { readdir, readFile, writeFile, mkdir, stat } from "fs/promises";
 import { existsSync } from "fs";
 import path from "path";
 
-const pluginsDir = "plugins";
+// 1. Önce 'dist' klasörünü oluştur
 await mkdir("dist", { recursive: true });
 
+// 2. Klasör oluştuktan SONRA .nojekyll dosyasını yaz
+await writeFile("dist/.nojekyll", "");
+
+const pluginsDir = "plugins";
 const entries = await readdir(pluginsDir);
 
 for (const entry of entries) {
@@ -14,7 +17,6 @@ for (const entry of entries) {
   const stats = await stat(pluginPath);
 
   if (stats.isDirectory()) {
-    // index.jsx, index.js, index.tsx veya index.ts dosyalarından hangisi varsa onu bulur
     const possibleEntries = ["index.jsx", "index.js", "index.tsx", "index.ts"];
     const entryFile = possibleEntries.find(file => existsSync(path.join(pluginPath, file)));
 
@@ -47,6 +49,6 @@ for (const entry of entries) {
     const manifest = await readFile(manifestPath, "utf8");
     await writeFile(path.join(outDir, "manifest.json"), manifest);
 
-    console.log(`[BUILD] ${entry} başarıyla derlendi.`);
+    console.log(`[BUILD] ${entry} derlendi.`);
   }
 }
