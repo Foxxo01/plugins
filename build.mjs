@@ -20,7 +20,6 @@ for (const entry of entries) {
   const stats = await stat(pluginPath);
 
   if (stats.isDirectory()) {
-    // Hem kök klasöre hem de src/ klasörüne bakar
     const possiblePaths = [
       path.join(pluginPath, "index.jsx"),
       path.join(pluginPath, "index.js"),
@@ -35,7 +34,7 @@ for (const entry of entries) {
     const indexPath = possiblePaths.find(p => existsSync(p));
 
     if (!indexPath) {
-      console.warn(`[SKIP] ${entry} atlandı -> index.jsx/js dosyası bulunamadı.`);
+      console.warn(`[SKIP] ${entry} atlandı -> index dosyası bulunamadı.`);
       continue;
     }
 
@@ -49,12 +48,17 @@ for (const entry of entries) {
     const outDir = path.join("dist", entry);
     await mkdir(outDir, { recursive: true });
 
+    // Dosya uzantısına göre loader seç
+    const ext = path.extname(indexPath).slice(1);
+    const loaderType = ext === "ts" || ext === "tsx" || ext === "jsx" ? ext : "js";
+
     await esbuild.build({
       entryPoints: [indexPath],
       bundle: true,
       minify: true,
       format: "esm",
       target: "es2021",
+      loader: { [`.${ext}`]: loaderType },
       outfile: path.join(outDir, "index.js"),
       external: ["@vendetta", "@vendetta/*"]
     });
