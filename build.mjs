@@ -36,7 +36,7 @@ for (const entry of entries) {
     const manifestPath = path.join(pluginPath, "manifest.json");
 
     if (!indexPath) {
-      console.error(`[HATA] ${entry} içinde giriş dosyası (index.ts/js/tsx) BULUNAMADI!`);
+      console.error(`[HATA] ${entry} içinde giriş dosyası BULUNAMADI!`);
       continue;
     }
 
@@ -61,6 +61,13 @@ for (const entry of entries) {
         target: "es2021",
         outfile: path.join(outDir, "index.js"),
         jsx: "transform",
+        resolveExtensions: [".tsx", ".ts", ".jsx", ".js", ".json"],
+        loader: {
+          ".js": "jsx",
+          ".ts": "tsx",
+          ".jsx": "jsx",
+          ".tsx": "tsx"
+        },
         external: ["@vendetta", "@vendetta/*", "react", "react-native"],
       });
 
@@ -69,7 +76,7 @@ for (const entry of entries) {
 
       console.log(`[BAŞARILI] ${entry} derlendi! -> dist/${entry}`);
     } catch (err) {
-      console.error(`[BUILD HATASI] ${entry} derlenemedi:`, err);
+      console.error(`[BUILD HATASI] ${entry} derlenemedi:`, err.message);
     }
   }
 }
