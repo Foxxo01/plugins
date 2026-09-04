@@ -14,22 +14,31 @@ if (!existsSync(pluginsDir)) {
 }
 
 const entries = await readdir(pluginsDir);
-console.log(`[BİLGİ] Bulunan klasörler/dosyalar:`, entries);
 
 for (const entry of entries) {
   const pluginPath = path.join(pluginsDir, entry);
   const stats = await stat(pluginPath);
 
   if (stats.isDirectory()) {
-    const possibleEntries = ["index.jsx", "index.js", "index.tsx", "index.ts"];
-    const entryFile = possibleEntries.find(file => existsSync(path.join(pluginPath, file)));
+    // Hem kök klasöre hem de src/ klasörüne bakar
+    const possiblePaths = [
+      path.join(pluginPath, "index.jsx"),
+      path.join(pluginPath, "index.js"),
+      path.join(pluginPath, "index.tsx"),
+      path.join(pluginPath, "index.ts"),
+      path.join(pluginPath, "src", "index.jsx"),
+      path.join(pluginPath, "src", "index.js"),
+      path.join(pluginPath, "src", "index.tsx"),
+      path.join(pluginPath, "src", "index.ts"),
+    ];
 
-    if (!entryFile) {
-      console.warn(`[SKIP] ${entry} atlandı -> Giriş dosyası (index.jsx/js/tsx/ts) yok.`);
+    const indexPath = possiblePaths.find(p => existsSync(p));
+
+    if (!indexPath) {
+      console.warn(`[SKIP] ${entry} atlandı -> index.jsx/js dosyası bulunamadı.`);
       continue;
     }
 
-    const indexPath = path.join(pluginPath, entryFile);
     const manifestPath = path.join(pluginPath, "manifest.json");
 
     if (!existsSync(manifestPath)) {
