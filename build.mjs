@@ -3,18 +3,19 @@ import { readdir, readFile, writeFile, mkdir, stat } from "fs/promises";
 import { existsSync } from "fs";
 import path from "path";
 
-// dist klasörünü sıfırdan oluştur
+// 1. Clean dist directory & add .nojekyll
 await mkdir("dist", { recursive: true });
 await writeFile("dist/.nojekyll", "");
 
 const pluginsDir = "plugins";
 
 if (!existsSync(pluginsDir)) {
-  console.error(`[HATA] '${pluginsDir}' klasörü bulunamadı!`);
+  console.error(`[HATA] '${pluginsDir}' directory not found!`);
   process.exit(1);
 }
 
 const entries = await readdir(pluginsDir);
+const manifestList = [];
 
 for (const entry of entries) {
   const pluginPath = path.join(pluginsDir, entry);
@@ -32,17 +33,11 @@ for (const entry of entries) {
       path.join(pluginPath, "src", "index.ts"),
     ];
 
-    const indexPath = possiblePaths.find(p => existsSync(p));
-
-    if (!indexPath) {
-      console.warn(`[SKIP] ${entry} atlandı -> index dosyası bulunamadı.`);
-      continue;
-    }
-
+    const indexPath = possiblePaths.find((p) => existsSync(p));
     const manifestPath = path.join(pluginPath, "manifest.json");
 
-    if (!existsSync(manifestPath)) {
-      console.warn(`[SKIP] ${entry} atlandı -> manifest.json dosyası yok.`);
+    if (!indexPath || !existsSync(manifestPath)) {
+      console.warn(`[SKIP] ${entry} -> index file or manifest.json is missing.`);
       continue;
     }
 
@@ -50,22 +45,39 @@ for (const entry of entries) {
     await mkdir(outDir, { recursive: true });
 
     try {
+      // Build index.js formatted for Vendetta/Revenge
       await esbuild.build({
         entryPoints: [indexPath],
         bundle: true,
         minify: true,
-        format: "esm",
+        format: "iife",
+        globalName: "plugin",
+        footer: {
+          js: "module.exports = plugin.default || plugin;",
+        },
         target: "es2021",
         outfile: path.join(outDir, "index.js"),
-        external: ["@vendetta", "@vendetta/*"]
+        jsx: "transform",
+        jsxFactory: "React.createElement",
+        jsxFragment: "React.Fragment",
+        external: ["@vendetta", "@vendetta/*", "react", "react-native"],
       });
 
-      const manifest = await readFile(manifestPath, "utf8");
-      await writeFile(path.join(outDir, "manifest.json"), manifest);
+      // Parse & Copy Manifest
+      const manifestData = JSON.parse(await readFile(manifestPath, "utf8"));
+      await writeFile(
+        path.join(outDir, "manifest.json"),
+        JSON.stringify(manifestData, null, 2)
+      );
 
-      console.log(`[BAŞARILI] ${entry} derlendi ve dist/${entry} içine yazıldı.`);
+      manifestList.push(manifestData);
+      console.log(`[SUCCESS] ${entry} compiled successfully to dist/${entry}`);
     } catch (err) {
-      console.error(`[HATA] ${entry} derlenirken hata oluştu:`, err.message);
+      console.error(`[ERROR] ${entry} compilation failed:`, err.message);
     }
   }
 }
+
+// Write master manifest list to dist root
+await writeFile("dist/plugins.json", JSON.stringify(manifestList, null, 2));
+console.log(`[FINISH] All plugins processed. ${manifestList.length} plugins in build.`);
