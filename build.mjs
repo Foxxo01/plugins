@@ -1,5 +1,5 @@
 import esbuild from "esbuild";
-import { readdir, readFile, writeFile, mkdir, stat, copyFile } from "fs/promises";
+import { readdir, writeFile, mkdir, stat, copyFile } from "fs/promises";
 import { existsSync } from "fs";
 import path from "path";
 
@@ -33,7 +33,6 @@ for (const entry of entries) {
     const manifestPath = path.join(pluginPath, "manifest.json");
 
     if (!indexPath || !existsSync(manifestPath)) {
-      console.warn(`[UYARI] ${entry} için index veya manifest.json bulunamadı, atlanıyor.`);
       continue;
     }
 
@@ -41,21 +40,16 @@ for (const entry of entries) {
     await mkdir(outDir, { recursive: true });
 
     try {
-      // 1. JS Derlemesi
       await esbuild.build({
         entryPoints: [indexPath],
         bundle: true,
         minify: false,
-        format: "iife",
-        globalName: "__plugin__",
-        banner: {
-          js: "var module = { exports: {} }; var exports = module.exports;",
-        },
-        footer: {
-          js: "module.exports = __plugin__.default || __plugin__;",
-        },
+        format: "cjs",
         target: "es2020",
         outfile: path.join(outDir, "index.js"),
+        footer: {
+          js: "module.exports = exports.default || module.exports;",
+        },
         jsx: "transform",
         jsxFactory: "React.createElement",
         jsxFragment: "React.Fragment",
@@ -76,11 +70,10 @@ for (const entry of entries) {
         ],
       });
 
-      // 2. manifest.json Dosyasını Doğrudan Kopyala
       const targetManifestPath = path.join(outDir, "manifest.json");
       await copyFile(manifestPath, targetManifestPath);
 
-      console.log(`[BAŞARILI] ${entry} ve manifest.json -> dist/${entry} içerisine kopyalandı.`);
+      console.log(`[BAŞARILI] ${entry} derlendi.`);
     } catch (err) {
       console.error(`[BUILD HATASI] ${entry}:`, err.message);
       process.exit(1);
