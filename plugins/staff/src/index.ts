@@ -1,21 +1,16 @@
-const unpatches = [];
+import { findByProps, findByStoreName } from "@vendetta/metro";
+
+const unpatches: Array<() => void> = [];
 
 export default {
   onLoad: () => {
     try {
-      // Vendetta global metro arayıcısını al
-      const metro = window.vendetta?.metro;
-      if (!metro) return;
-
-      const findByProps = metro.findByProps;
-      const findByStoreName = metro.findByStoreName;
-
       const PermissionStore = findByProps("getGuildPermissionProps", "computePermissions");
       const UserStore = findByProps("getCurrentUser", "getUser") || findByStoreName("UserStore");
       const GuildStore = findByProps("getGuilds", "getGuildsArray") || findByStoreName("GuildStore");
       const UserProfileStore = findByStoreName("UserProfileStore") || findByProps("getUserProfile");
 
-      // 1. Yetki Override
+      // 1. Yetki Patching
       if (PermissionStore) {
         try {
           if (typeof PermissionStore.computePermissions === "function") {
@@ -32,7 +27,7 @@ export default {
         } catch (e) {}
       }
 
-      // 2. Sunucu Sahibi Override
+      // 2. Sunucu Sahibi Patching
       if (GuildStore && UserStore) {
         try {
           const patchGuilds = () => {
@@ -40,7 +35,7 @@ export default {
             const list = Array.isArray(guilds) ? guilds : Object.values(guilds);
             const user = UserStore.getCurrentUser?.();
             if (user?.id) {
-              list.forEach((g) => { if (g && typeof g === "object") g.ownerId = user.id; });
+              list.forEach((g: any) => { if (g && typeof g === "object") g.ownerId = user.id; });
             }
           };
 
@@ -54,12 +49,12 @@ export default {
         } catch (e) {}
       }
 
-      // 3. Rozet Override (Staff & Bug Hunter)
+      // 3. Rozet Patching (Staff & Bug Hunter)
       if (UserProfileStore && UserStore) {
         try {
           const origGetProfile = UserProfileStore.getUserProfile;
           if (typeof origGetProfile === "function") {
-            UserProfileStore.getUserProfile = function (userId) {
+            UserProfileStore.getUserProfile = function (userId: string) {
               const profile = origGetProfile.apply(this, arguments);
               try {
                 const currentUser = UserStore.getCurrentUser?.();
@@ -72,7 +67,7 @@ export default {
                   ];
 
                   customBadges.forEach((b) => {
-                    if (!profile.badges.some((x) => x && x.id === b.id)) {
+                    if (!profile.badges.some((x: any) => x && x.id === b.id)) {
                       profile.badges.unshift(b);
                     }
                   });
