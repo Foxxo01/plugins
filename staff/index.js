@@ -14,6 +14,13 @@ var __plugin__ = (() => {
   var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
   var __getOwnPropNames = Object.getOwnPropertyNames;
   var __hasOwnProp = Object.prototype.hasOwnProperty;
+  var __require = /* @__PURE__ */ ((x) => typeof require !== "undefined" ? require : typeof Proxy !== "undefined" ? new Proxy(x, {
+    get: (a, b) => (typeof require !== "undefined" ? require : a)[b]
+  }) : x)(function(x) {
+    if (typeof require !== "undefined")
+      return require.apply(this, arguments);
+    throw new Error('Dynamic require of "' + x + '" is not supported');
+  });
   var __export = (target, all) => {
     for (var name in all)
       __defProp(target, name, { get: all[name], enumerable: true });
@@ -33,19 +40,15 @@ var __plugin__ = (() => {
   __export(src_exports, {
     default: () => src_default
   });
+  var import_metro = __require("@vendetta/metro");
   var unpatches = [];
   var src_default = {
     onLoad: () => {
       try {
-        const metro = window.vendetta?.metro;
-        if (!metro)
-          return;
-        const findByProps = metro.findByProps;
-        const findByStoreName = metro.findByStoreName;
-        const PermissionStore = findByProps("getGuildPermissionProps", "computePermissions");
-        const UserStore = findByProps("getCurrentUser", "getUser") || findByStoreName("UserStore");
-        const GuildStore = findByProps("getGuilds", "getGuildsArray") || findByStoreName("GuildStore");
-        const UserProfileStore = findByStoreName("UserProfileStore") || findByProps("getUserProfile");
+        const PermissionStore = (0, import_metro.findByProps)("getGuildPermissionProps", "computePermissions");
+        const UserStore = (0, import_metro.findByProps)("getCurrentUser", "getUser") || (0, import_metro.findByStoreName)("UserStore");
+        const GuildStore = (0, import_metro.findByProps)("getGuilds", "getGuildsArray") || (0, import_metro.findByStoreName)("GuildStore");
+        const UserProfileStore = (0, import_metro.findByStoreName)("UserProfileStore") || (0, import_metro.findByProps)("getUserProfile");
         if (PermissionStore) {
           try {
             if (typeof PermissionStore.computePermissions === "function") {
