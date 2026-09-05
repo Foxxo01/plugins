@@ -9,7 +9,7 @@ await writeFile("dist/.nojekyll", "");
 const pluginsDir = "plugins";
 
 if (!existsSync(pluginsDir)) {
-  console.error(`[CRITICAL HATA] '${pluginsDir}' klasörü bulunamadı!`);
+  console.error(`[HATA] '${pluginsDir}' klasörü bulunamadı!`);
   process.exit(1);
 }
 
@@ -36,7 +36,6 @@ for (const entry of entries) {
       continue;
     }
 
-    // Doğrudan dist/staff altına derler (ekstra plugins klasörü eklemez)
     const outDir = path.join("dist", entry);
     await mkdir(outDir, { recursive: true });
 
@@ -44,11 +43,15 @@ for (const entry of entries) {
       await esbuild.build({
         entryPoints: [indexPath],
         bundle: true,
-        minify: true,
+        minify: false,
         format: "iife",
-        globalName: "plugin",
+        globalName: "__plugin__",
+        // Vendetta loader'ın çökmemesi için gerekli wrapper
+        banner: {
+          js: "var module = { exports: {} }; var exports = module.exports;",
+        },
         footer: {
-          js: "if (typeof plugin !== 'undefined') { module.exports = plugin.default || plugin; }",
+          js: "module.exports = __plugin__.default || __plugin__;",
         },
         target: "es2020",
         outfile: path.join(outDir, "index.js"),
@@ -81,9 +84,9 @@ for (const entry of entries) {
         JSON.stringify(manifestData)
       );
 
-      console.log(`[BAŞARILI] ${entry} -> dist/${entry} olarak derlendi.`);
+      console.log(`[BAŞARILI] ${entry} -> dist/${entry} derlendi.`);
     } catch (err) {
-      console.error(`[BUILD HATASI] ${entry} derlenemedi:`, err.message);
+      console.error(`[BUILD HATASI] ${entry}:`, err.message);
       process.exit(1);
     }
   }
