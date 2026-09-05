@@ -27,6 +27,7 @@ for (const entry of entries) {
       path.join(pluginPath, "src", "index.jsx"),
       path.join(pluginPath, "index.ts"),
       path.join(pluginPath, "src", "index.ts"),
+      path.join(pluginPath, "src", "index.tsx"),
     ];
 
     const indexPath = possiblePaths.find((p) => existsSync(p));
@@ -48,10 +49,20 @@ for (const entry of entries) {
         globalName: "__plugin__",
         target: "es2020",
         outfile: path.join(outDir, "index.js"),
+        // Modülleri hariç tutuyoruz
+        external: ["@vendetta", "@vendetta/*", "react", "react-native"],
+        // Modülleri çalışma anında global vendetta objesine bağlıyoruz
         banner: {
           js: `
-          var vendetta = window.vendetta || {};
-          var React = window.React || (vendetta.metro && vendetta.metro.common && vendetta.metro.common.React);
+          var require = function(m) {
+            if (m.startsWith("@vendetta/")) {
+              var key = m.replace("@vendetta/", "");
+              return window.vendetta[key];
+            }
+            if (m === "@vendetta") return window.vendetta;
+            if (m === "react") return window.React || (window.vendetta && window.vendetta.metro && window.vendetta.metro.common && window.vendetta.metro.common.React);
+            return {};
+          };
           `,
         },
         footer: {
@@ -64,15 +75,9 @@ for (const entry of entries) {
         loader: {
           ".js": "jsx",
           ".jsx": "jsx",
+          ".ts": "ts",
+          ".tsx": "tsx",
         },
-        // external kullanmak yerine Vendetta global objelerine bağlıyoruz
-        alias: {
-          "@vendetta/metro": "vendetta.metro",
-          "@vendetta/patcher": "vendetta.patcher",
-          "@vendetta/ui": "vendetta.ui",
-          "@vendetta/utils": "vendetta.utils",
-          "@vendetta": "vendetta"
-        }
       });
 
       const targetManifestPath = path.join(outDir, "manifest.json");
