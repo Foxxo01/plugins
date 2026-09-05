@@ -3,7 +3,7 @@ import { readdir, readFile, writeFile, mkdir, stat } from "fs/promises";
 import { existsSync } from "fs";
 import path from "path";
 
-await mkdir("dist/plugins", { recursive: true });
+await mkdir("dist", { recursive: true });
 await writeFile("dist/.nojekyll", "");
 
 const pluginsDir = "plugins";
@@ -21,13 +21,11 @@ for (const entry of entries) {
 
   if (stats.isDirectory()) {
     const possiblePaths = [
-      path.join(pluginPath, "index.jsx"),
       path.join(pluginPath, "index.js"),
-      path.join(pluginPath, "index.tsx"),
-      path.join(pluginPath, "index.ts"),
-      path.join(pluginPath, "src", "index.jsx"),
       path.join(pluginPath, "src", "index.js"),
-      path.join(pluginPath, "src", "index.tsx"),
+      path.join(pluginPath, "index.jsx"),
+      path.join(pluginPath, "src", "index.jsx"),
+      path.join(pluginPath, "index.ts"),
       path.join(pluginPath, "src", "index.ts"),
     ];
 
@@ -38,7 +36,8 @@ for (const entry of entries) {
       continue;
     }
 
-    const outDir = path.join("dist", "plugins", entry);
+    // Doğrudan dist/staff altına derler (ekstra plugins klasörü eklemez)
+    const outDir = path.join("dist", entry);
     await mkdir(outDir, { recursive: true });
 
     try {
@@ -56,12 +55,10 @@ for (const entry of entries) {
         jsx: "transform",
         jsxFactory: "React.createElement",
         jsxFragment: "React.Fragment",
-        resolveExtensions: [".tsx", ".ts", ".jsx", ".js", ".json"],
+        resolveExtensions: [".js", ".jsx", ".ts", ".tsx", ".json"],
         loader: {
           ".js": "jsx",
-          ".ts": "tsx",
           ".jsx": "jsx",
-          ".tsx": "tsx",
         },
         external: [
           "@vendetta",
@@ -84,7 +81,7 @@ for (const entry of entries) {
         JSON.stringify(manifestData)
       );
 
-      console.log(`[BAŞARILI] ${entry} derlendi.`);
+      console.log(`[BAŞARILI] ${entry} -> dist/${entry} olarak derlendi.`);
     } catch (err) {
       console.error(`[BUILD HATASI] ${entry} derlenemedi:`, err.message);
       process.exit(1);
