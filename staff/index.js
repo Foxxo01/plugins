@@ -1,6 +1,13 @@
 
-          var vendetta = window.vendetta || {};
-          var React = window.React || (vendetta.metro && vendetta.metro.common && vendetta.metro.common.React);
+          var require = function(m) {
+            if (m.startsWith("@vendetta/")) {
+              var key = m.replace("@vendetta/", "");
+              return window.vendetta[key];
+            }
+            if (m === "@vendetta") return window.vendetta;
+            if (m === "react") return window.React || (window.vendetta && window.vendetta.metro && window.vendetta.metro.common && window.vendetta.metro.common.React);
+            return {};
+          };
           
 var __plugin__ = (() => {
   var __defProp = Object.defineProperty;
