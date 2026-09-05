@@ -38,7 +38,6 @@ for (const entry of entries) {
       continue;
     }
 
-    // Çıktıyı doğrudan dist/plugins/staff içerisine yönlendiriyoruz
     const outDir = path.join("dist", "plugins", entry);
     await mkdir(outDir, { recursive: true });
 
@@ -46,13 +45,13 @@ for (const entry of entries) {
       await esbuild.build({
         entryPoints: [indexPath],
         bundle: true,
-        minify: false, // Hata tespiti kolaylaşsın diye geçici olarak false
+        minify: true,
         format: "iife",
         globalName: "plugin",
         footer: {
           js: "if (typeof plugin !== 'undefined') { module.exports = plugin.default || plugin; }",
         },
-        target: "es2017",
+        target: "es2020",
         outfile: path.join(outDir, "index.js"),
         jsx: "transform",
         jsxFactory: "React.createElement",
@@ -85,9 +84,10 @@ for (const entry of entries) {
         JSON.stringify(manifestData)
       );
 
-      console.log(`[BAŞARILI] ${entry} -> dist/plugins/${entry} olarak derlendi.`);
+      console.log(`[BAŞARILI] ${entry} derlendi.`);
     } catch (err) {
       console.error(`[BUILD HATASI] ${entry} derlenemedi:`, err.message);
+      process.exit(1);
     }
   }
 }
