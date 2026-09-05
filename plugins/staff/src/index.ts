@@ -1,6 +1,6 @@
 import { findByProps, findByStoreName } from "@vendetta/metro";
 
-const unpatches = [];
+const unpatches: (() => void)[] = [];
 
 export default {
   onLoad: () => {
@@ -12,7 +12,7 @@ export default {
 
       // 1. Yetki Patching
       if (PermissionStore) {
-        const setProtoFields = (obj, fields, value) => {
+        const setProtoFields = (obj: any, fields: string[], value: any) => {
           fields.forEach((field) => {
             try { Object.getPrototypeOf(obj)[field] = value; } catch (e) {}
           });
@@ -28,7 +28,7 @@ export default {
 
         // ~0n yerine BigInt(~0) kullanarak ES2017 derleme hatasını çözdük
         setProtoFields(PermissionStore, ["getGuildPermissions", "getChannelPermissions", "computePermissions", "computeBasicPermissions"], () => BigInt(~0));
-        setProtoFields(PermissionStore, ["getGuildPermissionProps"], (guild) => ({ ...permissionProps, guild }));
+        setProtoFields(PermissionStore, ["getGuildPermissionProps"], (guild: any) => ({ ...permissionProps, guild }));
         setProtoFields(PermissionStore, ["can", "canAccessGuildSettings", "canAccessMemberSafetyPage", "canBasicChannel", "canImpersonateRole", "canManageUser", "canWithPartialContext", "isRoleHigher"], () => true);
 
         if (typeof PermissionStore.emitChange === "function") PermissionStore.emitChange();
@@ -41,7 +41,7 @@ export default {
           const guildsArray = GuildStore.getGuildsArray?.() || Object.values(guildsObj);
           const currentUser = UserStore.getCurrentUser?.();
           if (guildsArray && currentUser) {
-            guildsArray.forEach((g) => { if (g) g.ownerId = currentUser.id; });
+            guildsArray.forEach((g: any) => { if (g) g.ownerId = currentUser.id; });
           }
         };
 
@@ -58,7 +58,7 @@ export default {
       // 3. Rozet Enjeksiyonu (Staff + Bug Hunter)
       if (UserProfileStore && UserStore) {
         const originalGetUserProfile = UserProfileStore.getUserProfile;
-        UserProfileStore.getUserProfile = function (userId) {
+        UserProfileStore.getUserProfile = function (userId: string) {
           const profile = originalGetUserProfile.apply(this, arguments);
           const currentUser = UserStore.getCurrentUser();
 
@@ -71,7 +71,7 @@ export default {
             ];
 
             customBadges.forEach((badge) => {
-              if (!profile.badges.some((b) => b.id === badge.id)) {
+              if (!profile.badges.some((b: any) => b.id === badge.id)) {
                 profile.badges.unshift(badge);
               }
             });
