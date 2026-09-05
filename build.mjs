@@ -44,11 +44,18 @@ for (const entry of entries) {
         entryPoints: [indexPath],
         bundle: true,
         minify: false,
-        format: "cjs",
+        format: "iife",
+        globalName: "__plugin__",
         target: "es2020",
         outfile: path.join(outDir, "index.js"),
+        banner: {
+          js: `
+          var vendetta = window.vendetta || {};
+          var React = window.React || (vendetta.metro && vendetta.metro.common && vendetta.metro.common.React);
+          `,
+        },
         footer: {
-          js: "module.exports = exports.default || module.exports;",
+          js: "module.exports = __plugin__.default || __plugin__;",
         },
         jsx: "transform",
         jsxFactory: "React.createElement",
@@ -58,16 +65,14 @@ for (const entry of entries) {
           ".js": "jsx",
           ".jsx": "jsx",
         },
-        external: [
-          "@vendetta",
-          "@vendetta/*",
-          "react",
-          "react-native",
-          "@metro",
-          "@metro/*",
-          "@ui",
-          "@ui/*"
-        ],
+        // external kullanmak yerine Vendetta global objelerine bağlıyoruz
+        alias: {
+          "@vendetta/metro": "vendetta.metro",
+          "@vendetta/patcher": "vendetta.patcher",
+          "@vendetta/ui": "vendetta.ui",
+          "@vendetta/utils": "vendetta.utils",
+          "@vendetta": "vendetta"
+        }
       });
 
       const targetManifestPath = path.join(outDir, "manifest.json");
