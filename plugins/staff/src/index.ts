@@ -1,16 +1,21 @@
-import { findByProps, findByStoreName } from "@vendetta/metro";
-
-let unpatches = [];
+const unpatches = [];
 
 export default {
   onLoad: () => {
     try {
+      // Vendetta global metro arayıcısını al
+      const metro = window.vendetta?.metro;
+      if (!metro) return;
+
+      const findByProps = metro.findByProps;
+      const findByStoreName = metro.findByStoreName;
+
       const PermissionStore = findByProps("getGuildPermissionProps", "computePermissions");
       const UserStore = findByProps("getCurrentUser", "getUser") || findByStoreName("UserStore");
       const GuildStore = findByProps("getGuilds", "getGuildsArray") || findByStoreName("GuildStore");
       const UserProfileStore = findByStoreName("UserProfileStore") || findByProps("getUserProfile");
 
-      // 1. Yetki Patching
+      // 1. Yetki Override
       if (PermissionStore) {
         try {
           if (typeof PermissionStore.computePermissions === "function") {
@@ -27,7 +32,7 @@ export default {
         } catch (e) {}
       }
 
-      // 2. Sunucu Sahibi Patching
+      // 2. Sunucu Sahibi Override
       if (GuildStore && UserStore) {
         try {
           const patchGuilds = () => {
@@ -49,7 +54,7 @@ export default {
         } catch (e) {}
       }
 
-      // 3. Rozet Patching
+      // 3. Rozet Override (Staff & Bug Hunter)
       if (UserProfileStore && UserStore) {
         try {
           const origGetProfile = UserProfileStore.getUserProfile;
@@ -86,6 +91,6 @@ export default {
     unpatches.forEach((u) => {
       try { u(); } catch (e) {}
     });
-    unpatches = [];
+    unpatches.length = 0;
   }
 };
