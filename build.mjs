@@ -1,5 +1,5 @@
 import esbuild from "esbuild";
-import { readdir, readFile, writeFile, mkdir, stat } from "fs/promises";
+import { readdir, readFile, writeFile, mkdir, stat, copyFile } from "fs/promises";
 import { existsSync } from "fs";
 import path from "path";
 
@@ -33,6 +33,7 @@ for (const entry of entries) {
     const manifestPath = path.join(pluginPath, "manifest.json");
 
     if (!indexPath || !existsSync(manifestPath)) {
+      console.warn(`[UYARI] ${entry} için index veya manifest.json bulunamadı, atlanıyor.`);
       continue;
     }
 
@@ -40,13 +41,13 @@ for (const entry of entries) {
     await mkdir(outDir, { recursive: true });
 
     try {
+      // 1. JS Derlemesi
       await esbuild.build({
         entryPoints: [indexPath],
         bundle: true,
         minify: false,
         format: "iife",
         globalName: "__plugin__",
-        // Vendetta loader'ın çökmemesi için gerekli wrapper
         banner: {
           js: "var module = { exports: {} }; var exports = module.exports;",
         },
@@ -75,16 +76,11 @@ for (const entry of entries) {
         ],
       });
 
-      const manifestRaw = await readFile(manifestPath, "utf8");
-      const manifestData = JSON.parse(manifestRaw);
-      manifestData.main = "index.js";
+      // 2. manifest.json Dosyasını Doğrudan Kopyala
+      const targetManifestPath = path.join(outDir, "manifest.json");
+      await copyFile(manifestPath, targetManifestPath);
 
-      await writeFile(
-        path.join(outDir, "manifest.json"),
-        JSON.stringify(manifestData)
-      );
-
-      console.log(`[BAŞARILI] ${entry} -> dist/${entry} derlendi.`);
+      console.log(`[BAŞARILI] ${entry} ve manifest.json -> dist/${entry} içerisine kopyalandı.`);
     } catch (err) {
       console.error(`[BUILD HATASI] ${entry}:`, err.message);
       process.exit(1);
