@@ -1,99 +1,93 @@
-import { readFile, writeFile, readdir } from "fs/promises";
-import path, { extname } from "path";
-import { createHash } from "crypto";
+import esbuild from "esbuild";
+import { readdir, readFile, writeFile, mkdir, stat } from "fs/promises";
+import { existsSync } from "fs";
+import path from "path";
 
-import { rollup } from "rollup";
-import esbuild from "rollup-plugin-esbuild";
-import commonjs from "@rollup/plugin-commonjs";
-import nodeResolve from "@rollup/plugin-node-resolve";
-import alias from "@rollup/plugin-alias";
-import swc from "@swc/core";
-import { fileURLToPath } from "url";
+await mkdir("dist/plugins", { recursive: true });
+await writeFile("dist/.nojekyll", "");
 
-const extensions = [".js", ".jsx", ".mjs", ".ts", ".tsx", ".cts", ".mts"];
+const pluginsDir = "plugins";
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
+if (!existsSync(pluginsDir)) {
+  console.error(`[CRITICAL HATA] '${pluginsDir}' klasörü bulunamadı!`);
+  process.exit(1);
+}
 
-/** @type import("rollup").InputPluginOption */
-const plugins = [
-    alias({
-        entries: [
-            {
-                find: "@lib", replacement: path.resolve(__dirname, "lib")
-            }
-        ]
-    }),
-    nodeResolve({ extensions }),
-    commonjs(),
-    {
-        name: "swc",
-        async transform(code, id) {
-            const ext = extname(id);
-            if (!extensions.includes(ext)) return null;
+const entries = await readdir(pluginsDir);
 
-            const ts = ext.includes("ts");
-            const tsx = ts ? ext.endsWith("x") : undefined;
-            const jsx = !ts ? ext.endsWith("x") : undefined;
+for (const entry of entries) {
+  const pluginPath = path.join(pluginsDir, entry);
+  const stats = await stat(pluginPath);
 
-            const result = await swc.transform(code, {
-                filename: id,
-                jsc: {
-                    externalHelpers: true,
-                    parser: {
-                        syntax: ts ? "typescript" : "ecmascript",
-                        tsx,
-                        jsx,
-                    },
-                },
-                env: {
-                    targets: "defaults",
-                    include: [
-                        "transform-classes",
-                        "transform-arrow-functions",
-                    ],
-                },
-            });
-            return result.code;
-        },
-    },
-    esbuild({ minify: true }),
-];
+  if (stats.isDirectory()) {
+    const possiblePaths = [
+      path.join(pluginPath, "index.jsx"),
+      path.join(pluginPath, "index.js"),
+      path.join(pluginPath, "index.tsx"),
+      path.join(pluginPath, "index.ts"),
+      path.join(pluginPath, "src", "index.jsx"),
+      path.join(pluginPath, "src", "index.js"),
+      path.join(pluginPath, "src", "index.tsx"),
+      path.join(pluginPath, "src", "index.ts"),
+    ];
 
-for (let plug of await readdir("./plugins")) {
-    const manifest = JSON.parse(await readFile(`./plugins/${plug}/manifest.json`));
-    const outPath = `./dist/${plug}/index.js`;
+    const indexPath = possiblePaths.find((p) => existsSync(p));
+    const manifestPath = path.join(pluginPath, "manifest.json");
+
+    if (!indexPath || !existsSync(manifestPath)) {
+      continue;
+    }
+
+    const outDir = path.join("dist", "plugins", entry);
+    await mkdir(outDir, { recursive: true });
 
     try {
-        const bundle = await rollup({
-            input: `./plugins/${plug}/${manifest.main}`,
-            onwarn: () => {},
-            plugins,
-        });
-    
-        await bundle.write({
-            file: outPath,
-            globals(id) {
-                if (id.startsWith("@vendetta")) return id.substring(1).replace(/\//g, ".");
-                const map = {
-                    react: "window.React",
-                };
+      await esbuild.build({
+        entryPoints: [indexPath],
+        bundle: true,
+        minify: true,
+        format: "iife",
+        globalName: "plugin",
+        footer: {
+          js: "if (typeof plugin !== 'undefined') { module.exports = plugin.default || plugin; }",
+        },
+        target: "es2020",
+        outfile: path.join(outDir, "index.js"),
+        jsx: "transform",
+        jsxFactory: "React.createElement",
+        jsxFragment: "React.Fragment",
+        resolveExtensions: [".tsx", ".ts", ".jsx", ".js", ".json"],
+        loader: {
+          ".js": "jsx",
+          ".ts": "tsx",
+          ".jsx": "jsx",
+          ".tsx": "tsx",
+        },
+        external: [
+          "@vendetta",
+          "@vendetta/*",
+          "react",
+          "react-native",
+          "@metro",
+          "@metro/*",
+          "@ui",
+          "@ui/*"
+        ],
+      });
 
-                return map[id] || null;
-            },
-            format: "iife",
-            compact: true,
-            exports: "named",
-        });
-        await bundle.close();
-    
-        const toHash = await readFile(outPath);
-        manifest.hash = createHash("sha256").update(toHash).digest("hex");
-        manifest.main = "index.js";
-        await writeFile(`./dist/${plug}/manifest.json`, JSON.stringify(manifest));
-    
-        console.log(`Successfully built ${manifest.name}!`);
-    } catch (e) {
-        console.error("Failed to build plugin...", e);
-        process.exit(1);
+      const manifestRaw = await readFile(manifestPath, "utf8");
+      const manifestData = JSON.parse(manifestRaw);
+      manifestData.main = "index.js";
+
+      await writeFile(
+        path.join(outDir, "manifest.json"),
+        JSON.stringify(manifestData)
+      );
+
+      console.log(`[BAŞARILI] ${entry} derlendi.`);
+    } catch (err) {
+      console.error(`[BUILD HATASI] ${entry} derlenemedi:`, err.message);
+      process.exit(1);
     }
+  }
 }
