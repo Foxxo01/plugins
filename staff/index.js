@@ -32,86 +32,97 @@ var src_default = {
       const GuildStore = (0, import_metro.findByProps)("getGuilds", "getGuildsArray") || (0, import_metro.findByStoreName)("GuildStore");
       const UserProfileStore = (0, import_metro.findByStoreName)("UserProfileStore") || (0, import_metro.findByProps)("getUserProfile");
       if (PermissionStore) {
-        const setProtoFields = (obj, fields, value) => {
-          fields.forEach((field) => {
-            try {
-              Object.getPrototypeOf(obj)[field] = value;
-            } catch (e) {
-            }
-          });
-        };
-        let permissionProps = {};
         try {
-          const rawProps = PermissionStore.getGuildPermissionProps({ id: "0" }) || {};
-          permissionProps = Object.fromEntries(Object.keys(rawProps).map((key) => [key, true]));
-        } catch (e) {
-          permissionProps = { ADMINISTRATOR: true, ADMIN: true };
-        }
-        setProtoFields(PermissionStore, ["getGuildPermissions", "getChannelPermissions", "computePermissions", "computeBasicPermissions"], () => BigInt(~0));
-        setProtoFields(PermissionStore, ["getGuildPermissionProps"], (guild) => ({ ...permissionProps, guild }));
-        setProtoFields(PermissionStore, ["can", "canAccessGuildSettings", "canAccessMemberSafetyPage", "canBasicChannel", "canImpersonateRole", "canManageUser", "canWithPartialContext", "isRoleHigher"], () => true);
-        if (typeof PermissionStore.emitChange === "function")
-          PermissionStore.emitChange();
-      }
-      if (GuildStore && UserStore) {
-        const applyOwnerOverride = () => {
-          const guildsObj = GuildStore.getGuilds?.() || {};
-          const guildsArray = GuildStore.getGuildsArray?.() || Object.values(guildsObj);
-          const currentUser = UserStore.getCurrentUser?.();
-          if (guildsArray && currentUser) {
-            guildsArray.forEach((g) => {
-              if (g)
-                g.ownerId = currentUser.id;
+          if (typeof PermissionStore.computePermissions === "function") {
+            const origCompute = PermissionStore.computePermissions;
+            PermissionStore.computePermissions = function() {
+              return BigInt(~0);
+            };
+            unpatches.push(() => {
+              PermissionStore.computePermissions = origCompute;
             });
           }
-        };
-        if (typeof GuildStore.addChangeListener === "function") {
-          GuildStore.addChangeListener(applyOwnerOverride);
-          unpatches.push(() => {
-            try {
-              GuildStore.removeChangeListener(applyOwnerOverride);
-            } catch (e) {
-            }
-          });
+          if (typeof PermissionStore.can === "function") {
+            const origCan = PermissionStore.can;
+            PermissionStore.can = function() {
+              return true;
+            };
+            unpatches.push(() => {
+              PermissionStore.can = origCan;
+            });
+          }
+        } catch (e) {
         }
-        applyOwnerOverride();
-        if (typeof GuildStore.emitChange === "function")
-          GuildStore.emitChange();
       }
-      if (UserProfileStore && UserStore) {
-        const originalGetUserProfile = UserProfileStore.getUserProfile;
-        UserProfileStore.getUserProfile = function(userId) {
-          const profile = originalGetUserProfile.apply(this, arguments);
-          const currentUser = UserStore.getCurrentUser();
-          if (profile && userId === currentUser?.id) {
-            if (!profile.badges)
-              profile.badges = [];
-            const customBadges = [
-              { id: "staff", description: "Discord Personeli", icon: "5e74e9b61934fc1f67c65515d1f7e60d", link: "https://discord.com/company" },
-              { id: "bug_hunter", description: "Discord Bug Hunter", icon: "2717692c7dca7289b35297368a940dd0", link: "https://support.discord.com" }
-            ];
-            customBadges.forEach((badge) => {
-              if (!profile.badges.some((b) => b.id === badge.id)) {
-                profile.badges.unshift(badge);
+      if (GuildStore && UserStore) {
+        try {
+          const patchGuilds = () => {
+            const guilds = GuildStore.getGuilds?.() || {};
+            const list = Array.isArray(guilds) ? guilds : Object.values(guilds);
+            const user = UserStore.getCurrentUser?.();
+            if (user?.id) {
+              list.forEach((g) => {
+                if (g && typeof g === "object")
+                  g.ownerId = user.id;
+              });
+            }
+          };
+          if (typeof GuildStore.addChangeListener === "function") {
+            GuildStore.addChangeListener(patchGuilds);
+            unpatches.push(() => {
+              try {
+                GuildStore.removeChangeListener(patchGuilds);
+              } catch (e) {
               }
             });
           }
-          return profile;
-        };
-        unpatches.push(() => {
-          UserProfileStore.getUserProfile = originalGetUserProfile;
-        });
+          patchGuilds();
+        } catch (e) {
+        }
+      }
+      if (UserProfileStore && UserStore) {
+        try {
+          const origGetProfile = UserProfileStore.getUserProfile;
+          if (typeof origGetProfile === "function") {
+            UserProfileStore.getUserProfile = function(userId) {
+              const profile = origGetProfile.apply(this, arguments);
+              try {
+                const currentUser = UserStore.getCurrentUser?.();
+                if (profile && currentUser?.id && userId === currentUser.id) {
+                  if (!Array.isArray(profile.badges))
+                    profile.badges = [];
+                  const customBadges = [
+                    { id: "staff", description: "Discord Staff", icon: "5e74e9b61934fc1f67c65515d1f7e60d", link: "https://discord.com/company" },
+                    { id: "bug_hunter", description: "Discord Bug Hunter", icon: "2717692c7dca7289b35297368a940dd0", link: "https://support.discord.com" }
+                  ];
+                  customBadges.forEach((b) => {
+                    if (!profile.badges.some((x) => x && x.id === b.id)) {
+                      profile.badges.unshift(b);
+                    }
+                  });
+                }
+              } catch (e) {
+              }
+              return profile;
+            };
+            unpatches.push(() => {
+              UserProfileStore.getUserProfile = origGetProfile;
+            });
+          }
+        } catch (e) {
+        }
       }
     } catch (e) {
     }
   },
   onUnload: () => {
-    for (const unpatch of unpatches) {
+    unpatches.forEach((u) => {
       try {
-        unpatch();
+        u();
       } catch (e) {
       }
-    }
+    });
+    unpatches = [];
   }
 };
 module.exports = exports.default || module.exports;
