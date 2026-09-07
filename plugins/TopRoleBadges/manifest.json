@@ -1,0 +1,14 @@
+{
+    "name": "Top Role Badges",
+    "description": "The highest role on the servers is now a badge.",
+    "authors": [
+        {
+            "name": "URRally",
+            "id": "758758036562509855"
+        }
+    ],
+    "main": "src/index.ts",
+    "vendetta": {
+        "icon": "ic_badge_staff"
+    }
+}
