@@ -49,7 +49,7 @@ export default {
         } catch (e) {}
       }
 
-      // 3. Rozet Patching (Staff > Nitro Fire > Bug Hunter)
+      // 3. Rozet Patching (Birebir Orijinal Discord Hiyerarşisi)
       if (UserProfileStore && UserStore) {
         try {
           const origGetProfile = UserProfileStore.getUserProfile;
@@ -77,14 +77,6 @@ export default {
                     link: "https://discord.com/company"
                   };
 
-                  const nitroFireBadge = {
-                    id: "nitro_fire",
-                    key: "nitro_fire",
-                    description: "Nitro Fire",
-                    icon: "cff7119d4417261c3f52fde8a94ba8e5",
-                    link: "https://discord.com/nitro"
-                  };
-
                   const bugHunterBadge = {
                     id: "bug_hunter",
                     key: "bug_hunter",
@@ -94,26 +86,33 @@ export default {
                     link: "https://support.discord.com"
                   };
 
-                  // Çakışan rozetleri temizle
+                  const nitroFireBadge = {
+                    id: "nitro_fire",
+                    key: "nitro_fire",
+                    description: "Nitro Fire",
+                    icon: "cff7119d4417261c3f52fde8a94ba8e5",
+                    link: "https://discord.com/nitro"
+                  };
+
+                  // Eski/Çakışan rozetleri temizle
                   badges = badges.filter((b: any) => b && b.id !== "staff" && b.id !== "bug_hunter" && b.id !== "nitro_fire" && b.id !== "premium");
 
-                  // İstediğin Özel Sıralama:
-                  // 1: Staff | 2: Nitro Fire | 3: Bug Hunter
+                  // Birebir Resmi Discord Öncelik Haritası
                   const getPriority = (badge: any) => {
                     const id = (badge?.id || badge?.key || "").toLowerCase();
                     if (id.includes("staff")) return 1;
-                    if (id.includes("nitro")) return 2; // Nitro Fire, Bug Hunter'ın üstüne/önüne çekildi
-                    if (id.includes("bug_hunter")) return 3;
-                    if (id.includes("partner")) return 4;
-                    if (id.includes("certified_moderator") || id.includes("mod")) return 5;
-                    if (id.includes("hypesquad")) return 6;
-                    if (id.includes("developer") || id.includes("dev")) return 7;
-                    if (id.includes("early")) return 8;
-                    if (id.includes("booster") || id.includes("guild")) return 9;
+                    if (id.includes("partner")) return 2;
+                    if (id.includes("certified_moderator") || id.includes("mod")) return 3;
+                    if (id.includes("hypesquad")) return 4;
+                    if (id.includes("bug_hunter")) return 5;
+                    if (id.includes("developer") || id.includes("dev")) return 6;
+                    if (id.includes("early")) return 7;
+                    if (id.includes("nitro") || id.includes("premium")) return 8; // Nitro grubu (Fire dâhil)
+                    if (id.includes("booster") || id.includes("guild")) return 9;  // Boost grubu
                     return 99;
                   };
 
-                  const updatedBadges = [staffBadge, nitroFireBadge, bugHunterBadge, ...badges];
+                  const updatedBadges = [staffBadge, bugHunterBadge, nitroFireBadge, ...badges];
                   updatedBadges.sort((a, b) => getPriority(a) - getPriority(b));
 
                   profile.badges = updatedBadges;
