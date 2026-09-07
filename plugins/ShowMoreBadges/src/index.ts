@@ -1,4 +1,4 @@
-import { findByProps, findByPropsAll } from "@vendetta/metro";
+import { findByProps, findByName } from "@vendetta/metro";
 import { before, after } from "@vendetta/patcher";
 
 const unpatches: Array<() => void> = [];
@@ -12,23 +12,23 @@ export default {
         if (BadgeUtils.MAX_BADGES_TO_DISPLAY !== undefined) BadgeUtils.MAX_BADGES_TO_DISPLAY = 999;
       }
 
-      const badgeModules = findByPropsAll("MAX_BADGES", "MAX_BADGES_TO_DISPLAY");
-      badgeModules.forEach((m) => {
-        if (m.MAX_BADGES !== undefined) m.MAX_BADGES = 999;
-        if (m.MAX_BADGES_TO_DISPLAY !== undefined) m.MAX_BADGES_TO_DISPLAY = 999;
-      });
-
-      const profileBadgeComp = findByProps("UserBadges") || findByProps("ProfileBadges") || findByProps("default", "getBadges");
-      if (profileBadgeComp) {
-        const targetKey = profileBadgeComp.UserBadges ? "UserBadges" : profileBadgeComp.ProfileBadges ? "ProfileBadges" : "default";
-        if (typeof profileBadgeComp[targetKey] === "function") {
+      const UserBadges = findByProps("UserBadges") || findByProps("ProfileBadges") || findByName("UserBadges", false);
+      if (UserBadges) {
+        const target = UserBadges.UserBadges ? "UserBadges" : UserBadges.ProfileBadges ? "ProfileBadges" : "default";
+        if (typeof UserBadges[target] === "function") {
           unpatches.push(
-            before(targetKey, profileBadgeComp, (args) => {
+            before(target, UserBadges, (args) => {
               if (args && args[0]) {
-                if (args[0].maxBadges !== undefined) args[0].maxBadges = 999;
-                if (args[0].limit !== undefined) args[0].limit = 999;
-                if (args[0].badges && Array.isArray(args[0].badges)) {
-                  args[0].truncatedBadges = [];
+                args[0].maxBadges = 999;
+                args[0].limit = 999;
+                if (Array.isArray(args[0].badges)) {
+                  const origSlice = args[0].badges.slice;
+                  args[0].badges.slice = function (start?: number, end?: number) {
+                    if (start === 0 && (end === 6 || end === 5)) {
+                      return this;
+                    }
+                    return origSlice.apply(this, arguments as any);
+                  };
                 }
               }
             })
@@ -36,16 +36,25 @@ export default {
         }
       }
 
-      const renderBadgeUtils = findByProps("renderBadges", "getBadges");
-      if (renderBadgeUtils && typeof renderBadgeUtils.renderBadges === "function") {
-        unpatches.push(
-          before("renderBadges", renderBadgeUtils, (args) => {
-            if (args && args[0]) {
-              if (args[0].maxBadges !== undefined) args[0].maxBadges = 999;
-              if (args[0].limit !== undefined) args[0].limit = 999;
-            }
-          })
-        );
+      const RenderUtils = findByProps("renderBadges") || findByProps("getDisplayBadges");
+      if (RenderUtils) {
+        Object.keys(RenderUtils).forEach((key) => {
+          if (typeof RenderUtils[key] === "function") {
+            unpatches.push(
+              before(key, RenderUtils, (args) => {
+                if (args && args[0] && Array.isArray(args[0])) {
+                  const origSlice = args[0].slice;
+                  args[0].slice = function (start?: number, end?: number) {
+                    if (start === 0 && (end === 6 || end === 5)) {
+                      return this;
+                    }
+                    return origSlice.apply(this, arguments as any);
+                  };
+                }
+              })
+            );
+          }
+        });
       }
     } catch (e) {}
   },
