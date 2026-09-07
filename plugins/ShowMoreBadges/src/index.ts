@@ -1,58 +1,51 @@
-import { findByProps, findByPropsAll } from "@vendetta/metro";
-import { after, before } from "@vendetta/patcher";
+import { findByProps } from "@vendetta/metro";
+import { after } from "@vendetta/patcher";
 
 const unpatches: Array<() => void> = [];
 
 export default {
   onLoad: () => {
     try {
-      const badgeUtils = findByPropsAll("MAX_BADGES", "MAX_BADGES_TO_DISPLAY");
-      badgeUtils.forEach((m) => {
-        if (m.MAX_BADGES !== undefined) m.MAX_BADGES = 999;
-        if (m.MAX_BADGES_TO_DISPLAY !== undefined) m.MAX_BADGES_TO_DISPLAY = 999;
-      });
+      const BadgeModules = findByProps("UserProfileBadges") || findByProps("ProfileBadges") || findByProps("UserBadges");
 
-      const profileBadgesModule = findByProps("UserProfileBadges") || findByProps("ProfileBadges") || findByProps("UserBadges");
-      
-      if (profileBadgesModule) {
-        Object.keys(profileBadgesModule).forEach((key) => {
-          if (typeof profileBadgesModule[key] === "function") {
+      if (BadgeModules) {
+        Object.keys(BadgeModules).forEach((key) => {
+          if (typeof BadgeModules[key] === "function") {
             unpatches.push(
-              before(key, profileBadgesModule, (args) => {
-                if (args && args[0]) {
-                  args[0].maxBadges = 999;
-                  args[0].limit = 999;
-                  args[0].displayAllBadges = true;
-                  if (args[0].badges && Array.isArray(args[0].badges)) {
-                    args[0].badges = args[0].badges.map((b: any) => ({
-                      ...b,
-                      truncated: false
-                    }));
-                  }
-                }
-              })
-            );
-
-            unpatches.push(
-              after(key, profileBadgesModule, (_, res) => {
+              after(key, BadgeModules, (args, res) => {
                 try {
-                  if (res?.props?.children) {
-                    const removeOverflow = (child: any) => {
-                      if (!child) return;
-                      if (child.props) {
-                        if (child.props.overflowCount !== undefined) child.props.overflowCount = 0;
-                        if (child.props.truncated !== undefined) child.props.truncated = false;
-                        if (child.props.hasMore !== undefined) child.props.hasMore = false;
-                        if (child.props.children) {
-                          if (Array.isArray(child.props.children)) {
-                            child.props.children.forEach(removeOverflow);
-                          } else {
-                            removeOverflow(child.props.children);
-                          }
+                  if (args && args[0] && Array.isArray(args[0].badges)) {
+                    const allBadges = args[0].badges;
+
+                    const fixTree = (node: any): any => {
+                      if (!node) return node;
+
+                      if (node.props) {
+                        if (node.props.overflow || node.props.overflowCount || node.props.badgeCount) {
+                          node.props.overflow = undefined;
+                          node.props.overflowCount = 0;
+                          node.props.badgeCount = undefined;
+                        }
+
+                        if (Array.isArray(node.props.children)) {
+                          node.props.children = node.props.children
+                            .filter((child: any) => {
+                              if (!child) return false;
+                              const isOverflowComponent = 
+                                child.type?.name?.includes("Overflow") || 
+                                child.props?.text?.includes("+") || 
+                                child.props?.ariaLabel?.includes("+");
+                              return !isOverflowComponent;
+                            })
+                            .map(fixTree);
+                        } else if (node.props.children) {
+                          node.props.children = fixTree(node.props.children);
                         }
                       }
+                      return node;
                     };
-                    removeOverflow(res);
+
+                    return fixTree(res);
                   }
                 } catch (e) {}
                 return res;
