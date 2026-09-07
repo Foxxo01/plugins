@@ -49,7 +49,7 @@ export default {
         } catch (e) {}
       }
 
-      // 3. Çok Dilli ve Dinamik İsimli Rozet Patching
+      // 3. Rozet Patching (Staff, Bug Hunter ve Fire Nitro)
       if (UserProfileStore && UserStore) {
         try {
           const origGetProfile = UserProfileStore.getUserProfile;
@@ -66,9 +66,10 @@ export default {
                   const locale = (LocaleStore?.locale || "en").toLowerCase();
                   const isTurkish = locale.startsWith("tr");
 
-                  // Dile göre resmi karşılıklar
+                  // Dil Seçenekleri
                   const staffLabel = isTurkish ? "Discord Çalışanı" : "Discord Staff";
                   const bugHunterLabel = isTurkish ? "Discord Hata Avcısı" : "Discord Bug Hunter";
+                  const nitroFireLabel = isTurkish ? "Discord Nitro Subscriber" : "Subscriber since Oct 10, 2018";
 
                   const staffBadge = {
                     id: "staff",
@@ -88,8 +89,18 @@ export default {
                     link: "https://support.discord.com"
                   };
 
-                  // Çakışan eski eklemeleri temizle
-                  badges = badges.filter((b: any) => b && b.id !== "staff" && b.id !== "bug_hunter");
+                  // Fire Tier Nitro Rozeti (Alevli Nitro)
+                  const nitroFireBadge = {
+                    id: "premium",
+                    key: "premium",
+                    flags: 128,
+                    description: nitroFireLabel,
+                    icon: "0e41712a4f4946328a6f3a76383a152d",
+                    link: "https://discord.com/nitro"
+                  };
+
+                  // Eski/Çakışan rozetleri temizle
+                  badges = badges.filter((b: any) => b && b.id !== "staff" && b.id !== "bug_hunter" && b.id !== "premium");
 
                   // Öncelik Sıralaması
                   const getPriority = (badge: any) => {
@@ -106,7 +117,7 @@ export default {
                     return 99;
                   };
 
-                  const updatedBadges = [staffBadge, bugHunterBadge, ...badges];
+                  const updatedBadges = [staffBadge, bugHunterBadge, nitroFireBadge, ...badges];
                   updatedBadges.sort((a, b) => getPriority(a) - getPriority(b));
 
                   profile.badges = updatedBadges;
