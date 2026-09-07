@@ -2,6 +2,20 @@ import { findByProps, findByStoreName } from "@vendetta/metro";
 
 const unpatches: Array<() => void> = [];
 
+// Discord'un resmi rozet öncelik sırası
+const BADGE_ORDER: Record<string, number> = {
+  staff: 1,
+  partner: 2,
+  certified_moderator: 3,
+  hypesquad: 4,
+  bug_hunter_level_2: 5,
+  bug_hunter: 6, // Bug Hunter Level 1
+  active_developer: 7,
+  early_supporter: 8,
+  premium: 9, // Nitro
+  guild_booster: 10, // Boost
+};
+
 export default {
   onLoad: () => {
     try {
@@ -49,7 +63,7 @@ export default {
         } catch (e) {}
       }
 
-      // 3. Rozet Patching (Staff İlk Rozet Olarak Ayarlandı)
+      // 3. Rozet Patching (Discord Resmi Sıralamasına Göre)
       if (UserProfileStore && UserStore) {
         try {
           const origGetProfile = UserProfileStore.getUserProfile;
@@ -61,21 +75,24 @@ export default {
                 if (profile && currentUser?.id && userId === currentUser.id) {
                   if (!Array.isArray(profile.badges)) profile.badges = [];
 
-                  // Rozetler öncelik sırasına göre dizildi
                   const customBadges = [
                     { id: "staff", description: "Discord Staff", icon: "5e74e9b61934fc1f67c65515d1f7e60d", link: "https://discord.com/company" },
                     { id: "bug_hunter", description: "Discord Bug Hunter", icon: "2717692c7dca7289b35297368a940dd0", link: "https://support.discord.com" }
                   ];
 
-                  // Diziye ters sırayla ekleyerek Staff'ın en başta (index 0) kalmasını sağlıyoruz
-                  for (let i = customBadges.length - 1; i >= 0; i--) {
-                    const b = customBadges[i];
-                    const existingIndex = profile.badges.findIndex((x: any) => x && x.id === b.id);
-                    if (existingIndex !== -1) {
-                      profile.badges.splice(existingIndex, 1); // Varsa eski yerinden çıkar
+                  // Özel rozetleri ekle
+                  customBadges.forEach((b) => {
+                    if (!profile.badges.some((x: any) => x && x.id === b.id)) {
+                      profile.badges.push(b);
                     }
-                    profile.badges.unshift(b); // En başa yerleştir
-                  }
+                  });
+
+                  // Tüm rozetleri Discord hiyerarşisine göre sırala
+                  profile.badges.sort((a: any, b: any) => {
+                    const orderA = BADGE_ORDER[a?.id] ?? 99;
+                    const orderB = BADGE_ORDER[b?.id] ?? 99;
+                    return orderA - orderB;
+                  });
                 }
               } catch (e) {}
               return profile;
