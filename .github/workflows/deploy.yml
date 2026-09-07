@@ -1,34 +1,42 @@
 name: Build and deploy
 
 on:
-    push:
-        branches: [main]
+  push:
+    branches: [master]
 
 jobs:
-    deploy:
-        runs-on: ubuntu-latest
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
-        steps:
-            - uses: actions/checkout@v4
+    steps:
+      - uses: actions/checkout@v7
 
-            - name: Prepare environment
-              uses: actions/setup-node@v4
-              with:
-                  node-version: "22"
+      - name: Prepare environment
+        uses: actions/setup-node@v7
+        with:
+          node-version: "24"
 
-            - name: Install deps
-              run: npm install
+      - run: npm install --global pnpm@10
 
-            - name: Build plugin(s) and site
-              run: npm run build
+      - name: Install deps
+        run: pnpm install --no-frozen-lockfile
 
-            - name: Install API deps
-              working-directory: api
-              run: npm install
+      - name: Build plugin(s)
+        run: node ./build.mjs
 
-            - name: Deploy to Cloudflare Workers
-              working-directory: api
-              env:
-                  CLOUDFLARE_API_KEY: ${{ secrets.CLOUDFLARE_API_KEY }}
-                  CLOUDFLARE_EMAIL: ${{ secrets.CLOUDFLARE_EMAIL }}
-              run: npx wrangler deploy
+      - name: Prepare deployment
+        run: |
+          # Copy the new UI to dist
+          cp docs/index.html dist/index.html
+          cp docs/.nojekyll dist/.nojekyll
+
+      # Documentation: https://github.com/peaceiris/actions-gh-pages
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./dist
+          enable_jekyll: false
+          # cname: example.com
