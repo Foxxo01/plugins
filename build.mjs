@@ -1,10 +1,8 @@
-import { readFile, writeFile, readdir, copyFile } from "fs/promises";
-import { extname, resolve as resolvePath } from "path";
+import { readFile, writeFile, readdir, mkdir, rm } from "fs/promises";
+import { extname } from "path";
 import { createHash } from "crypto";
 
 import { rollup } from "rollup";
-import alias from "@rollup/plugin-alias";
-import url from "@rollup/plugin-url";
 import esbuild from "rollup-plugin-esbuild";
 import commonjs from "@rollup/plugin-commonjs";
 import nodeResolve from "@rollup/plugin-node-resolve";
@@ -12,112 +10,174 @@ import swc from "@swc/core";
 
 const extensions = [".js", ".jsx", ".mjs", ".ts", ".tsx", ".cts", ".mts"];
 
-// Plugins are each built into an independent, self-contained bundle (users install them one at a time),
-// so they can't import from each other at runtime - but they CAN share source at build time. This alias
-// lets any plugin `import { x } from "@shared/..."` and have it inlined straight into its own bundle.
-/** @type import("rollup").InputPluginOption */
+/*
+ * ---------------------------------------------------------
+ * ROLLUP PLUGINS
+ * ---------------------------------------------------------
+ */
+
 const plugins = [
-    alias({
-        entries: [
-            { find: "@shared", replacement: resolvePath("./shared") },
-            // FPTE's own internal aliases, namespaced to avoid colliding with any other plugin
-            // that might want a generic "@lib"/"@ui" of its own.
-            { find: "@fpte/lib", replacement: resolvePath("./plugins/fake-profile-themes-and-effects/src/lib") },
-            { find: "@fpte/ui", replacement: resolvePath("./plugins/fake-profile-themes-and-effects/src/ui") },
-            { find: "@fpte/patches", replacement: resolvePath("./plugins/fake-profile-themes-and-effects/src/patches") },
-        ],
-    }),
-    nodeResolve({ extensions: [".mjs", ".js", ".json", ".node", ".ts", ".tsx"] }),
+    nodeResolve({ extensions }),
+
     commonjs(),
-    url({
-        include: ["**/*.svg", "**/*.png", "**/*.jpg", "**/*.gif"],
-        limit: 0,
-    }),
+
     {
         name: "swc",
         async transform(code, id) {
             const ext = extname(id);
             if (!extensions.includes(ext)) return null;
 
-            const ts = ext.includes("ts");
-            const tsx = ts ? ext.endsWith("x") : undefined;
-            const jsx = !ts ? ext.endsWith("x") : undefined;
+            const isTypeScript = ext.includes("ts");
+            const isTSX = isTypeScript && ext.endsWith("x");
+            const isJSX = !isTypeScript && ext.endsWith("x");
 
             const result = await swc.transform(code, {
                 filename: id,
                 jsc: {
-                    externalHelpers: true,
+                    externalHelpers: false, // Prevents missing @swc/helpers runtime errors
                     parser: {
-                        syntax: ts ? "typescript" : "ecmascript",
-                        tsx,
-                        jsx,
+                        syntax: isTypeScript ? "typescript" : "ecmascript",
+                        tsx: isTSX,
+                        jsx: isJSX,
                     },
                 },
                 env: {
                     targets: "defaults",
-                    include: [
-                        "transform-classes",
-                        "transform-arrow-functions",
-                    ],
+                    include: ["transform-classes", "transform-arrow-functions"],
                 },
             });
-            return result.code;
+
+            return {
+                code: result.code,
+                map: result.map,
+            };
         },
     },
-    esbuild({ minify: true }),
+
+    esbuild({
+        minify: true,
+    }),
 ];
 
-// Each plugin's actual install target (manifest.json + index.js) lives at /<id>/install/, so that
-// /<id>/ itself is free to be a real, bookmarkable HTML page describing the plugin (see generate-site.mjs).
-for (const plug of await readdir("./plugins")) {
-    const manifest = JSON.parse(await readFile(`./plugins/${plug}/manifest.json`));
-    const outPath = `./dist/${plug}/install/index.js`;
+/*
+ * ---------------------------------------------------------
+ * CLEAN DIST
+ * ---------------------------------------------------------
+ */
+
+await rm("./dist", { recursive: true, force: true });
+await mkdir("./dist", { recursive: true });
+
+/*
+ * ---------------------------------------------------------
+ * LOAD PLUGIN PAGE TEMPLATE
+ * ---------------------------------------------------------
+ */
+
+let pluginPageTemplate;
+try {
+    pluginPageTemplate = await readFile("./docs/plugin.html", "utf8");
+} catch (error) {
+    console.error("❌ docs/plugin.html could not be found.");
+    process.exit(1);
+}
+
+/*
+ * ---------------------------------------------------------
+ * FIND PLUGINS
+ * ---------------------------------------------------------
+ */
+
+const pluginFolders = await readdir("./plugins", { withFileTypes: true });
+const pluginsToBuild = pluginFolders.filter((entry) => entry.isDirectory());
+
+/*
+ * ---------------------------------------------------------
+ * BUILD EVERY PLUGIN
+ * ---------------------------------------------------------
+ */
+
+for (const pluginFolder of pluginsToBuild) {
+    const plug = pluginFolder.name;
 
     try {
+        const manifestPath = `./plugins/${plug}/manifest.json`;
+        let manifest;
+
+        try {
+            manifest = JSON.parse(await readFile(manifestPath, "utf8"));
+        } catch {
+            console.warn(`⚠️ Skipping ${plug} - manifest.json missing or invalid.`);
+            continue;
+        }
+
+        const pluginDist = `./dist/${plug}`;
+        await mkdir(pluginDist, { recursive: true });
+        const outputFile = `${pluginDist}/index.js`;
+
         const bundle = await rollup({
             input: `./plugins/${plug}/${manifest.main}`,
-            onwarn: () => {},
-            // Most plugins only ever import React/ReactNative via @vendetta/metro/common, which
-            // resolves to nothing on disk and so is treated as external automatically - but a
-            // couple of ported plugins import the bare "react"/"react-native" packages directly
-            // (like their own original build configs expected), and those DO exist in
-            // node_modules, so without this they'd actually get bundled - including react-native's
-            // real source, which contains Flow syntax this toolchain can't parse.
-            external: ["react", "react-native"],
+            /* 
+             * Tell Rollup that @vendetta modules and React are external
+             * so it maps them properly instead of bundling them or failing.
+             */
+            external: (id) => id.startsWith("@vendetta") || id === "react",
+            onwarn(warning, warn) {
+                if (warning.code === "CIRCULAR_DEPENDENCY") return;
+                warn(warning);
+            },
             plugins,
         });
 
         await bundle.write({
-            file: outPath,
-            globals(id) {
-                if (id.startsWith("@vendetta")) return id.substring(1).replace(/\//g, ".");
-                const map = {
-                    react: "window.React",
-                    "react-native": "vendetta.metro.common.ReactNative",
-                };
-
-                return map[id] || null;
-            },
+            file: outputFile,
             format: "iife",
             compact: true,
             exports: "named",
+            globals(id) {
+                if (id.startsWith("@vendetta")) {
+                    return id.substring(1).replace(/\//g, ".");
+                }
+                if (id === "react") return "React";
+                return null;
+            },
         });
+
         await bundle.close();
 
-        const toHash = await readFile(outPath);
-        manifest.hash = createHash("sha256").update(toHash).digest("hex");
+        /*
+         * HASH & UPDATE MANIFEST
+         */
+        const compiledPlugin = await readFile(outputFile);
+        manifest.hash = createHash("sha256").update(compiledPlugin).digest("hex");
         manifest.main = "index.js";
-        await writeFile(`./dist/${plug}/install/manifest.json`, JSON.stringify(manifest));
-        await writeFile(`./dist/${plug}/manifest.json`, JSON.stringify(manifest));
-        await copyFile(outPath, `./dist/${plug}/index.js`);
 
-        console.log(`Successfully built ${manifest.name}!`);
-    } catch (e) {
-        console.error(`Failed to build ${plug}...`, e);
+        await writeFile(`${pluginDist}/manifest.json`, JSON.stringify(manifest, null, 2));
+        await writeFile(`${pluginDist}/index.html`, pluginPageTemplate);
+
+        console.log(`✅ Successfully built ${manifest.name || plug}!`);
+    } catch (error) {
+        console.error(`❌ Failed to build plugin ${plug}`);
+        console.error(error);
         process.exit(1);
     }
 }
 
+/*
+ * ---------------------------------------------------------
+ * COPY MAIN WEBSITE & NOJEKYLL
+ * ---------------------------------------------------------
+ */
+
 try {
-    await copyFile("./blacklist.json", "./dist/blacklist.json");
-} catch (_) {}
+    const homepage = await readFile("./docs/index.html", "utf8");
+    await writeFile("./dist/index.html", homepage);
+    await writeFile("./dist/.nojekyll", "");
+} catch (error) {
+    console.error("❌ docs/index.html could not be found.");
+    process.exit(1);
+}
+
+console.log("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+console.log(`✅ Build completed! Built ${pluginsToBuild.length} plugin(s).`);
+console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
