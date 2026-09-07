@@ -1,56 +1,61 @@
-import { findByProps, findByName } from "@vendetta/metro";
-import { before, after } from "@vendetta/patcher";
+import { findByProps, findByPropsAll } from "@vendetta/metro";
+import { after, before } from "@vendetta/patcher";
 
 const unpatches: Array<() => void> = [];
 
 export default {
   onLoad: () => {
     try {
-      const BadgeUtils = findByProps("getBadges", "MAX_BADGES") || findByProps("MAX_BADGES_TO_DISPLAY");
-      if (BadgeUtils) {
-        if (BadgeUtils.MAX_BADGES !== undefined) BadgeUtils.MAX_BADGES = 999;
-        if (BadgeUtils.MAX_BADGES_TO_DISPLAY !== undefined) BadgeUtils.MAX_BADGES_TO_DISPLAY = 999;
-      }
+      const badgeUtils = findByPropsAll("MAX_BADGES", "MAX_BADGES_TO_DISPLAY");
+      badgeUtils.forEach((m) => {
+        if (m.MAX_BADGES !== undefined) m.MAX_BADGES = 999;
+        if (m.MAX_BADGES_TO_DISPLAY !== undefined) m.MAX_BADGES_TO_DISPLAY = 999;
+      });
 
-      const UserBadges = findByProps("UserBadges") || findByProps("ProfileBadges") || findByName("UserBadges", false);
-      if (UserBadges) {
-        const target = UserBadges.UserBadges ? "UserBadges" : UserBadges.ProfileBadges ? "ProfileBadges" : "default";
-        if (typeof UserBadges[target] === "function") {
-          unpatches.push(
-            before(target, UserBadges, (args) => {
-              if (args && args[0]) {
-                args[0].maxBadges = 999;
-                args[0].limit = 999;
-                if (Array.isArray(args[0].badges)) {
-                  const origSlice = args[0].badges.slice;
-                  args[0].badges.slice = function (start?: number, end?: number) {
-                    if (start === 0 && (end === 6 || end === 5)) {
-                      return this;
-                    }
-                    return origSlice.apply(this, arguments as any);
-                  };
-                }
-              }
-            })
-          );
-        }
-      }
-
-      const RenderUtils = findByProps("renderBadges") || findByProps("getDisplayBadges");
-      if (RenderUtils) {
-        Object.keys(RenderUtils).forEach((key) => {
-          if (typeof RenderUtils[key] === "function") {
+      const profileBadgesModule = findByProps("UserProfileBadges") || findByProps("ProfileBadges") || findByProps("UserBadges");
+      
+      if (profileBadgesModule) {
+        Object.keys(profileBadgesModule).forEach((key) => {
+          if (typeof profileBadgesModule[key] === "function") {
             unpatches.push(
-              before(key, RenderUtils, (args) => {
-                if (args && args[0] && Array.isArray(args[0])) {
-                  const origSlice = args[0].slice;
-                  args[0].slice = function (start?: number, end?: number) {
-                    if (start === 0 && (end === 6 || end === 5)) {
-                      return this;
-                    }
-                    return origSlice.apply(this, arguments as any);
-                  };
+              before(key, profileBadgesModule, (args) => {
+                if (args && args[0]) {
+                  args[0].maxBadges = 999;
+                  args[0].limit = 999;
+                  args[0].displayAllBadges = true;
+                  if (args[0].badges && Array.isArray(args[0].badges)) {
+                    args[0].badges = args[0].badges.map((b: any) => ({
+                      ...b,
+                      truncated: false
+                    }));
+                  }
                 }
+              })
+            );
+
+            unpatches.push(
+              after(key, profileBadgesModule, (_, res) => {
+                try {
+                  if (res?.props?.children) {
+                    const removeOverflow = (child: any) => {
+                      if (!child) return;
+                      if (child.props) {
+                        if (child.props.overflowCount !== undefined) child.props.overflowCount = 0;
+                        if (child.props.truncated !== undefined) child.props.truncated = false;
+                        if (child.props.hasMore !== undefined) child.props.hasMore = false;
+                        if (child.props.children) {
+                          if (Array.isArray(child.props.children)) {
+                            child.props.children.forEach(removeOverflow);
+                          } else {
+                            removeOverflow(child.props.children);
+                          }
+                        }
+                      }
+                    };
+                    removeOverflow(res);
+                  }
+                } catch (e) {}
+                return res;
               })
             );
           }
