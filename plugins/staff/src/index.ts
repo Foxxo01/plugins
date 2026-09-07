@@ -2,20 +2,6 @@ import { findByProps, findByStoreName } from "@vendetta/metro";
 
 const unpatches: Array<() => void> = [];
 
-// Discord'un resmi rozet öncelik sırası
-const BADGE_ORDER: Record<string, number> = {
-  staff: 1,
-  partner: 2,
-  certified_moderator: 3,
-  hypesquad: 4,
-  bug_hunter_level_2: 5,
-  bug_hunter: 6, // Bug Hunter Level 1
-  active_developer: 7,
-  early_supporter: 8,
-  premium: 9, // Nitro
-  guild_booster: 10, // Boost
-};
-
 export default {
   onLoad: () => {
     try {
@@ -63,7 +49,7 @@ export default {
         } catch (e) {}
       }
 
-      // 3. Rozet Patching (Discord Resmi Sıralamasına Göre)
+      // 3. Kesin Sıralama ve Rozet Override
       if (UserProfileStore && UserStore) {
         try {
           const origGetProfile = UserProfileStore.getUserProfile;
@@ -73,26 +59,49 @@ export default {
               try {
                 const currentUser = UserStore.getCurrentUser?.();
                 if (profile && currentUser?.id && userId === currentUser.id) {
-                  if (!Array.isArray(profile.badges)) profile.badges = [];
+                  let badges = Array.isArray(profile.badges) ? [...profile.badges] : [];
 
-                  const customBadges = [
-                    { id: "staff", description: "Discord Staff", icon: "5e74e9b61934fc1f67c65515d1f7e60d", link: "https://discord.com/company" },
-                    { id: "bug_hunter", description: "Discord Bug Hunter", icon: "2717692c7dca7289b35297368a940dd0", link: "https://support.discord.com" }
-                  ];
+                  // Özel eklenen rozetler (Resmi ID ve Flag değerleri eklendi)
+                  const staffBadge = {
+                    id: "staff",
+                    key: "staff",
+                    description: "Discord Staff",
+                    icon: "5e74e9b61934fc1f67c65515d1f7e60d",
+                    link: "https://discord.com/company"
+                  };
 
-                  // Özel rozetleri ekle
-                  customBadges.forEach((b) => {
-                    if (!profile.badges.some((x: any) => x && x.id === b.id)) {
-                      profile.badges.push(b);
-                    }
-                  });
+                  const bugHunterBadge = {
+                    id: "bug_hunter",
+                    key: "bug_hunter",
+                    description: "Discord Bug Hunter",
+                    icon: "2717692c7dca7289b35297368a940dd0",
+                    link: "https://support.discord.com"
+                  };
 
-                  // Tüm rozetleri Discord hiyerarşisine göre sırala
-                  profile.badges.sort((a: any, b: any) => {
-                    const orderA = BADGE_ORDER[a?.id] ?? 99;
-                    const orderB = BADGE_ORDER[b?.id] ?? 99;
-                    return orderA - orderB;
-                  });
+                  // Mevcut listedeki çakışan rozetleri temizle
+                  badges = badges.filter((b: any) => b && b.id !== "staff" && b.id !== "bug_hunter");
+
+                  // Discord Resmi Öncelik Haritası
+                  const getPriority = (badge: any) => {
+                    const id = (badge?.id || badge?.key || "").toLowerCase();
+                    if (id.includes("staff")) return 1;
+                    if (id.includes("partner")) return 2;
+                    if (id.includes("certified_moderator") || id.includes("mod")) return 3;
+                    if (id.includes("hypesquad")) return 4;
+                    if (id.includes("bug_hunter")) return 5;
+                    if (id.includes("developer") || id.includes("dev")) return 6;
+                    if (id.includes("early")) return 7;
+                    if (id.includes("premium") || id.includes("nitro")) return 8;
+                    if (id.includes("booster") || id.includes("guild")) return 9;
+                    return 99;
+                  };
+
+                  // Yeni diziyi oluştur ve sırala
+                  const updatedBadges = [staffBadge, bugHunterBadge, ...badges];
+                  updatedBadges.sort((a, b) => getPriority(a) - getPriority(b));
+
+                  // Orijinal nesneye tamamen yeni referanslı dizi atıyoruz (Cache ve React re-render için)
+                  profile.badges = updatedBadges;
                 }
               } catch (e) {}
               return profile;
