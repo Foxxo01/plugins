@@ -9,9 +9,6 @@ export default {
       const UserStore = findByProps("getCurrentUser", "getUser") || findByStoreName("UserStore");
       const GuildStore = findByProps("getGuilds", "getGuildsArray") || findByStoreName("GuildStore");
       const UserProfileStore = findByStoreName("UserProfileStore") || findByProps("getUserProfile");
-      
-      // Discord'un resmi dil / çeviri modülünü bul
-      const i18n = findByProps("Messages") || findByProps("getMessage");
 
       // 1. Yetki Patching
       if (PermissionStore) {
@@ -52,7 +49,7 @@ export default {
         } catch (e) {}
       }
 
-      // 3. Çok Dilli ve Resmi Sıralamalı Rozet Patching
+      // 3. Otomatik Dilli ve Resmi Flag'li Rozet Patching
       if (UserProfileStore && UserStore) {
         try {
           const origGetProfile = UserProfileStore.getUserProfile;
@@ -64,14 +61,13 @@ export default {
                 if (profile && currentUser?.id && userId === currentUser.id) {
                   let badges = Array.isArray(profile.badges) ? [...profile.badges] : [];
 
-                  // Dil metinlerini çek (Bulamazsa varsayılan İngilizceyi kullanır)
-                  const staffText = i18n?.Messages?.STAFF_BADGE_OFFICIAL || i18n?.Messages?.PROFILE_BADGE_STAFF || "Discord Staff";
-                  const bugHunterText = i18n?.Messages?.BUG_HUNTER_BADGE_LEVEL_1 || i18n?.Messages?.PROFILE_BADGE_BUG_HUNTER || "Discord Bug Hunter";
-
+                  // Discord Resmi Flag Değerleri:
+                  // Staff: 1 (1 << 0)
+                  // Bug Hunter L1: 4 (1 << 2)
                   const staffBadge = {
                     id: "staff",
                     key: "staff",
-                    description: staffText,
+                    flags: 1,
                     icon: "5e74e9b61934fc1f67c65515d1f7e60d",
                     link: "https://discord.com/company"
                   };
@@ -79,15 +75,15 @@ export default {
                   const bugHunterBadge = {
                     id: "bug_hunter",
                     key: "bug_hunter",
-                    description: bugHunterText,
+                    flags: 4,
                     icon: "2717692c7dca7289b35297368a940dd0",
                     link: "https://support.discord.com"
                   };
 
-                  // Eski/Çakışan rozetleri temizle
+                  // Çakışan rozetleri temizle
                   badges = badges.filter((b: any) => b && b.id !== "staff" && b.id !== "bug_hunter");
 
-                  // Resmi Öncelik Haritası
+                  // Öncelik Sıralaması
                   const getPriority = (badge: any) => {
                     const id = (badge?.id || badge?.key || "").toLowerCase();
                     if (id.includes("staff")) return 1;
