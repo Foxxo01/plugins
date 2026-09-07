@@ -49,7 +49,7 @@ export default {
         } catch (e) {}
       }
 
-      // 3. Otomatik Dilli ve Resmi Flag'li Rozet Patching
+      // 3. Çok Dilli ve Dinamik İsimli Rozet Patching
       if (UserProfileStore && UserStore) {
         try {
           const origGetProfile = UserProfileStore.getUserProfile;
@@ -61,13 +61,20 @@ export default {
                 if (profile && currentUser?.id && userId === currentUser.id) {
                   let badges = Array.isArray(profile.badges) ? [...profile.badges] : [];
 
-                  // Discord Resmi Flag Değerleri:
-                  // Staff: 1 (1 << 0)
-                  // Bug Hunter L1: 4 (1 << 2)
+                  // Aktif uygulama dilini tespit et
+                  const LocaleStore = findByStoreName("LocaleStore") || findByProps("locale");
+                  const locale = (LocaleStore?.locale || "en").toLowerCase();
+                  const isTurkish = locale.startsWith("tr");
+
+                  // Dile göre resmi karşılıklar
+                  const staffLabel = isTurkish ? "Discord Çalışanı" : "Discord Staff";
+                  const bugHunterLabel = isTurkish ? "Discord Hata Avcısı" : "Discord Bug Hunter";
+
                   const staffBadge = {
                     id: "staff",
                     key: "staff",
                     flags: 1,
+                    description: staffLabel,
                     icon: "5e74e9b61934fc1f67c65515d1f7e60d",
                     link: "https://discord.com/company"
                   };
@@ -76,11 +83,12 @@ export default {
                     id: "bug_hunter",
                     key: "bug_hunter",
                     flags: 4,
+                    description: bugHunterLabel,
                     icon: "2717692c7dca7289b35297368a940dd0",
                     link: "https://support.discord.com"
                   };
 
-                  // Çakışan rozetleri temizle
+                  // Çakışan eski eklemeleri temizle
                   badges = badges.filter((b: any) => b && b.id !== "staff" && b.id !== "bug_hunter");
 
                   // Öncelik Sıralaması
