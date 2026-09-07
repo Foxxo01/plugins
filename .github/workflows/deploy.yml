@@ -1,39 +1,34 @@
 name: Build and deploy
 
 on:
-  push:
-    branches: [master, main]
+    push:
+        branches: [main]
 
 jobs:
-  deploy:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
+    deploy:
+        runs-on: ubuntu-latest
 
-    steps:
-      - uses: actions/checkout@v4
+        steps:
+            - uses: actions/checkout@v4
 
-      - name: Prepare environment
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
+            - name: Prepare environment
+              uses: actions/setup-node@v4
+              with:
+                  node-version: "22"
 
-      - run: npm install --global pnpm
+            - name: Install deps
+              run: npm install
 
-      - name: Install deps
-        run: pnpm install
+            - name: Build plugin(s) and site
+              run: npm run build
 
-      - name: Build plugin(s)
-        run: node ./build.mjs
+            - name: Install API deps
+              working-directory: api
+              run: npm install
 
-      - name: Copy additional files
-        run: |
-          cp README.md dist/README.md 2>/dev/null || true
-
-      - name: Deploy to GitHub Pages
-        uses: peaceiris/actions-gh-pages@v3
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./dist
-          publish_branch: gh-pages
-          enable_jekyll: false
+            - name: Deploy to Cloudflare Workers
+              working-directory: api
+              env:
+                  CLOUDFLARE_API_KEY: ${{ secrets.CLOUDFLARE_API_KEY }}
+                  CLOUDFLARE_EMAIL: ${{ secrets.CLOUDFLARE_EMAIL }}
+              run: npx wrangler deploy
