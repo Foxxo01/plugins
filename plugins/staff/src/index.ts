@@ -49,7 +49,7 @@ export default {
         } catch (e) {}
       }
 
-      // 3. Rozet Patching (Staff, Bug Hunter ve Fire Nitro)
+      // 3. Rozet Patching (Staff > Nitro Fire > Bug Hunter)
       if (UserProfileStore && UserStore) {
         try {
           const origGetProfile = UserProfileStore.getUserProfile;
@@ -61,15 +61,12 @@ export default {
                 if (profile && currentUser?.id && userId === currentUser.id) {
                   let badges = Array.isArray(profile.badges) ? [...profile.badges] : [];
 
-                  // Aktif uygulama dilini tespit et
                   const LocaleStore = findByStoreName("LocaleStore") || findByProps("locale");
                   const locale = (LocaleStore?.locale || "en").toLowerCase();
                   const isTurkish = locale.startsWith("tr");
 
-                  // Dil Seçenekleri
                   const staffLabel = isTurkish ? "Discord Çalışanı" : "Discord Staff";
                   const bugHunterLabel = isTurkish ? "Discord Hata Avcısı" : "Discord Bug Hunter";
-                  const nitroFireLabel = isTurkish ? "Discord Nitro Subscriber" : "Subscriber since Oct 10, 2018";
 
                   const staffBadge = {
                     id: "staff",
@@ -78,6 +75,14 @@ export default {
                     description: staffLabel,
                     icon: "5e74e9b61934fc1f67c65515d1f7e60d",
                     link: "https://discord.com/company"
+                  };
+
+                  const nitroFireBadge = {
+                    id: "nitro_fire",
+                    key: "nitro_fire",
+                    description: "Nitro Fire",
+                    icon: "cff7119d4417261c3f52fde8a94ba8e5",
+                    link: "https://discord.com/nitro"
                   };
 
                   const bugHunterBadge = {
@@ -89,35 +94,26 @@ export default {
                     link: "https://support.discord.com"
                   };
 
-                  // Fire Tier Nitro Rozeti (Alevli Nitro)
-                  const nitroFireBadge = {
-                    id: "premium",
-                    key: "premium",
-                    flags: 128,
-                    description: nitroFireLabel,
-                    icon: "0e41712a4f4946328a6f3a76383a152d",
-                    link: "https://discord.com/nitro"
-                  };
+                  // Çakışan rozetleri temizle
+                  badges = badges.filter((b: any) => b && b.id !== "staff" && b.id !== "bug_hunter" && b.id !== "nitro_fire" && b.id !== "premium");
 
-                  // Eski/Çakışan rozetleri temizle
-                  badges = badges.filter((b: any) => b && b.id !== "staff" && b.id !== "bug_hunter" && b.id !== "premium");
-
-                  // Öncelik Sıralaması
+                  // İstediğin Özel Sıralama:
+                  // 1: Staff | 2: Nitro Fire | 3: Bug Hunter
                   const getPriority = (badge: any) => {
                     const id = (badge?.id || badge?.key || "").toLowerCase();
                     if (id.includes("staff")) return 1;
-                    if (id.includes("partner")) return 2;
-                    if (id.includes("certified_moderator") || id.includes("mod")) return 3;
-                    if (id.includes("hypesquad")) return 4;
-                    if (id.includes("bug_hunter")) return 5;
-                    if (id.includes("developer") || id.includes("dev")) return 6;
-                    if (id.includes("early")) return 7;
-                    if (id.includes("premium") || id.includes("nitro")) return 8;
+                    if (id.includes("nitro")) return 2; // Nitro Fire, Bug Hunter'ın üstüne/önüne çekildi
+                    if (id.includes("bug_hunter")) return 3;
+                    if (id.includes("partner")) return 4;
+                    if (id.includes("certified_moderator") || id.includes("mod")) return 5;
+                    if (id.includes("hypesquad")) return 6;
+                    if (id.includes("developer") || id.includes("dev")) return 7;
+                    if (id.includes("early")) return 8;
                     if (id.includes("booster") || id.includes("guild")) return 9;
                     return 99;
                   };
 
-                  const updatedBadges = [staffBadge, bugHunterBadge, nitroFireBadge, ...badges];
+                  const updatedBadges = [staffBadge, nitroFireBadge, bugHunterBadge, ...badges];
                   updatedBadges.sort((a, b) => getPriority(a) - getPriority(b));
 
                   profile.badges = updatedBadges;
