@@ -1,1 +1,14 @@
-
+{
+    "name": "RichPresence",
+    "description": "Pretend you're playing the game you want.",
+    "authors": [
+        {
+            "name": "URRally",
+            "id": "758758036562509855"
+        }
+    ],
+    "main": "src/index.ts",
+    "vendetta": {
+        "icon": "ic_badge_staff"
+    }
+}
