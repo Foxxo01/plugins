@@ -1,7 +1,7 @@
 import { React } from "@revenge/metro/common";
 import { components } from "@revenge/ui";
 import { storage } from "@revenge/plugin";
-import pluginInstance from "./index";
+import { updatePresence } from "./index";
 
 const { ScrollView, View, Text, TextInput, Button } = components;
 
@@ -24,7 +24,7 @@ export default function Settings() {
     storage.partyMax = partyMax;
     storage.autoStart = true;
 
-    pluginInstance.updatePresence();
+    updatePresence();
   };
 
   return (
