@@ -11,39 +11,51 @@ export const settings: {
     guildId?: string;
 } = storage;
 
+let lastChannelId: string | null = null;
+
 function triggerSoundboard(channelId: string) {
     if (!settings.soundId) return;
 
-    FluxDispatcher.dispatch({
-        type: "GUILD_SOUNDBOARD_SOUND_PLAY_START",
-        soundId: settings.soundId,
-        soundGuildId: settings.guildId || "0",
-        channelId: channelId,
-    });
+    try {
+        FluxDispatcher.dispatch({
+            type: "GUILD_SOUNDBOARD_SOUND_PLAY_START",
+            soundId: settings.soundId,
+            soundGuildId: settings.guildId || "0",
+            channelId: channelId,
+        });
+    } catch (e) {
+        console.error("[AutoSoundboard] Play error:", e);
+    }
 }
 
-let lastChannelId: string | null = null;
-
 function handleVoiceStateChange() {
-    const currentUserId = UserStore.getCurrentUser()?.id;
-    if (!currentUserId) return;
+    try {
+        const currentUserId = UserStore?.getCurrentUser()?.id;
+        if (!currentUserId) return;
 
-    const currentVoiceState = VoiceStateStore.getVoiceStateForUser(currentUserId);
-    const currentChannelId = currentVoiceState?.channelId;
+        const currentVoiceState = VoiceStateStore?.getVoiceStateForUser(currentUserId);
+        const currentChannelId = currentVoiceState?.channelId;
 
-    if (currentChannelId && currentChannelId !== lastChannelId) {
-        triggerSoundboard(currentChannelId);
+        if (currentChannelId && currentChannelId !== lastChannelId) {
+            triggerSoundboard(currentChannelId);
+        }
+
+        lastChannelId = currentChannelId || null;
+    } catch (e) {
+        console.error("[AutoSoundboard] Voice state error:", e);
     }
-
-    lastChannelId = currentChannelId;
 }
 
 export default {
     onLoad: () => {
-        VoiceStateStore.addChangeListener(handleVoiceStateChange);
+        if (VoiceStateStore?.addChangeListener) {
+            VoiceStateStore.addChangeListener(handleVoiceStateChange);
+        }
     },
     onUnload: () => {
-        VoiceStateStore.removeChangeListener(handleVoiceStateChange);
+        if (VoiceStateStore?.removeChangeListener) {
+            VoiceStateStore.removeChangeListener(handleVoiceStateChange);
+        }
     },
     settings: Settings
 };
