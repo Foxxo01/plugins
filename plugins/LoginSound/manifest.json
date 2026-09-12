@@ -1,0 +1,14 @@
+{
+    "name": "Login Sound",
+    "description": "Choose the panel you want and play.",
+    "authors": [
+        {
+            "name": "URRally",
+            "id": "758758036562509855"
+        }
+    ],
+    "main": "src/index.tsx",
+    "vendetta": {
+        "icon": "ic_voice_channel_24px"
+    }
+}
