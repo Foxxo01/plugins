@@ -1,9 +1,13 @@
-import { findByStoreName } from "@vendetta/metro";
+import { React, findByStoreName } from "@vendetta/metro";
 import { storage } from "@vendetta/plugin";
+import { Forms } from "@vendetta/ui/components";
+
+const { FormSection, FormRow, FormText } = Forms;
 
 const VoiceStateStore = findByStoreName("VoiceStateStore");
 const UserStore = findByStoreName("UserStore");
 const FluxDispatcher = findByStoreName("FluxDispatcher");
+const SoundboardStore = findByStoreName("SoundboardStore");
 
 let lastChannelId = null;
 
@@ -40,6 +44,56 @@ function handleVoiceStateChange() {
     }
 }
 
+function Settings() {
+    const getSoundsList = () => {
+        const options = [];
+        try {
+            const rawSounds = SoundboardStore?.getSounds();
+            if (rawSounds && typeof rawSounds === "object") {
+                Object.keys(rawSounds).forEach((gId) => {
+                    const soundsArray = rawSounds[gId];
+                    if (Array.isArray(soundsArray)) {
+                        soundsArray.forEach((sound) => {
+                            options.push({
+                                label: `${sound.emojiName ? sound.emojiName + " " : ""}${sound.name}`,
+                                value: String(sound.soundId),
+                                guildId: String(gId)
+                            });
+                        });
+                    }
+                });
+            }
+        } catch (e) {
+            console.error("[LoginSound] Settings error:", e);
+        }
+        return options;
+    };
+
+    const options = getSoundsList();
+
+    return React.createElement(
+        FormSection,
+        { title: "Giriş Ses Paneli Seçimi" },
+        options.length > 0
+            ? options.map((opt) =>
+                  React.createElement(FormRow, {
+                      key: opt.value,
+                      label: opt.label,
+                      subLabel: storage.soundId === opt.value ? "✓ Seçili" : "",
+                      onPress: () => {
+                          storage.soundId = opt.value;
+                          storage.guildId = opt.guildId;
+                      }
+                  })
+              )
+            : React.createElement(
+                  FormText,
+                  null,
+                  "Ses paneli verisi bulunamadı. Lütfen Discord'da bir sunucunun ses panelini açıp tekrar deneyin."
+              )
+    );
+}
+
 export default {
     onLoad: () => {
         try {
@@ -58,5 +112,6 @@ export default {
         } catch (e) {
             console.error("[LoginSound] onUnload error:", e);
         }
-    }
+    },
+    settings: Settings
 };
