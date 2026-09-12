@@ -3,7 +3,7 @@ import { findByStoreName } from "@vendetta/metro";
 import { storage } from "@vendetta/plugin";
 import { Forms } from "@vendetta/ui/components";
 
-const { FormSection, FormRow, FormText } = Forms;
+const { FormSection, FormRow, FormText, FormInput } = Forms;
 
 const VoiceStateStore = findByStoreName("VoiceStateStore");
 const UserStore = findByStoreName("UserStore");
@@ -75,6 +75,18 @@ function Settings() {
     return React.createElement(
         FormSection,
         { title: "Giriş Ses Paneli Seçimi" },
+        React.createElement(FormInput, {
+            label: "Özel Sound ID (Opsiyonel)",
+            value: storage.soundId || "",
+            onChange: (v) => (storage.soundId = v),
+            placeholder: "Örn: 1069720000000000000"
+        }),
+        React.createElement(FormInput, {
+            label: "Özel Guild ID (Opsiyonel)",
+            value: storage.guildId || "",
+            onChange: (v) => (storage.guildId = v),
+            placeholder: "Varsayılan sesler için 0 yazın"
+        }),
         options.length > 0
             ? options.map((opt) =>
                   React.createElement(FormRow, {
@@ -90,7 +102,7 @@ function Settings() {
             : React.createElement(
                   FormText,
                   null,
-                  "Ses paneli verisi bulunamadı. Lütfen Discord'da bir sunucunun ses panelini açıp tekrar deneyin."
+                  "Ses listesi otomatik çekilemediyse yukarıdaki kutulara istediğin Sound ID'sini yazabilirsin."
               )
     );
 }
