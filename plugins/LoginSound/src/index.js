@@ -1,4 +1,5 @@
-import { React, findByStoreName } from "@vendetta/metro";
+import { React } from "@vendetta/metro/common";
+import { findByStoreName } from "@vendetta/metro";
 import { storage } from "@vendetta/plugin";
 import { Forms } from "@vendetta/ui/components";
 
