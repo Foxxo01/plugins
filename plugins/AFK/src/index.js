@@ -55,8 +55,7 @@ export default {
     try {
       const Dispatcher = findByProps("dispatch", "subscribe");
       const UserStore = findByStore("UserStore");
-      const MessageActions = findByProps("sendMessage");
-      const NonceModule = findByProps("getSnowflake") || findByProps("generateNonce");
+      const RestAPI = findByProps("post", "get") || findByProps("HTTP");
 
       if (!Dispatcher) return;
 
@@ -71,8 +70,9 @@ export default {
           if (msg.author?.id === currentUser.id) return;
 
           const myId = currentUser.id;
-          const isMentionedArray = msg.mentions?.some((u) => u.id === myId);
-          const isMentionedText = msg.content?.includes(`<@${myId}>`) || msg.content?.includes(`<@!${myId}>`);
+          const mentionsArray = Array.isArray(msg.mentions) ? msg.mentions : [];
+          const isMentionedArray = mentionsArray.some((u) => u.id === myId);
+          const isMentionedText = msg.content && (msg.content.includes(`<@${myId}>`) || msg.content.includes(`<@!${myId}>`));
 
           if (isMentionedArray || isMentionedText) {
             const channelId = msg.channel_id;
@@ -84,20 +84,24 @@ export default {
 
             storage.lastSent[channelId] = now;
 
-            const nonce = NonceModule?.getSnowflake ? NonceModule.getSnowflake() : String(BigInt(Date.now() - 1420070400000) << 22n);
-            const contentText = `<@${msg.author.id}> ${storage.message}`;
+            setTimeout(() => {
+              const contentText = `<@${msg.author.id}> ${storage.message}`;
 
-            if (MessageActions?.sendMessage) {
-              MessageActions.sendMessage(channelId, {
-                content: contentText,
-                tts: false,
-                invalidEmojis: [],
-                validNonShortcutEmojis: []
-              }, false, {
-                nonce: nonce,
-                isPending: false
-              });
-            }
+              if (RestAPI?.post) {
+                RestAPI.post({
+                  url: `/channels/${channelId}/messages`,
+                  body: {
+                    content: contentText,
+                    tts: false
+                  }
+                });
+              } else {
+                const MessageActions = findByProps("sendMessage");
+                if (MessageActions?.sendMessage) {
+                  MessageActions.sendMessage(channelId, { content: contentText });
+                }
+              }
+            }, 500);
           }
         } catch (err) {}
       };
