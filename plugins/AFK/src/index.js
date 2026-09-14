@@ -55,7 +55,8 @@ export default {
     try {
       const Dispatcher = findByProps("dispatch", "subscribe");
       const UserStore = findByStore("UserStore");
-      const MessageActions = findByProps("sendMessage", "receiveMessage");
+      const MessageActions = findByProps("sendMessage");
+      const NonceModule = findByProps("getSnowflake") || findByProps("generateNonce");
 
       if (!Dispatcher) return;
 
@@ -77,18 +78,24 @@ export default {
             const channelId = msg.channel_id;
             const now = Date.now();
 
-            if (storage.lastSent[channelId] && now - storage.lastSent[channelId] < 15000) {
+            if (storage.lastSent[channelId] && now - storage.lastSent[channelId] < 10000) {
               return;
             }
 
             storage.lastSent[channelId] = now;
 
+            const nonce = NonceModule?.getSnowflake ? NonceModule.getSnowflake() : String(BigInt(Date.now() - 1420070400000) << 22n);
+            const contentText = `<@${msg.author.id}> ${storage.message}`;
+
             if (MessageActions?.sendMessage) {
               MessageActions.sendMessage(channelId, {
-                content: `<@${msg.author.id}> ${storage.message}`,
+                content: contentText,
                 tts: false,
                 invalidEmojis: [],
                 validNonShortcutEmojis: []
+              }, false, {
+                nonce: nonce,
+                isPending: false
               });
             }
           }
