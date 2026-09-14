@@ -1,21 +1,18 @@
-import { patcher, storage } from "@vendetta/plugin";
+import { storage } from "@vendetta/plugin";
 import { findByProps, findByStore } from "@vendetta/metro";
 import { React } from "@vendetta/metro/common";
 import { Forms, General } from "@vendetta/ui/components";
-import { openModal } from "@vendetta/ui/modals";
 
-const { FormRow, FormSwitch, FormInput, FormSection } = Forms;
+const { FormSwitch, FormInput, FormSection } = Forms;
 const { ScrollView } = General;
 
 const UserStore = findByStore("UserStore");
 const MessageActions = findByProps("sendMessage");
-const ActionSheetModule = findByProps("openLazy", "hideActionSheet");
 
 storage.enabled ??= false;
 storage.message ??= "Şu an AFK'yım, en kısa sürede dönüş yapacağım.";
 storage.lastSent ??= {};
 
-let unpatchSheet;
 let unpatchMessage;
 
 function AFKSettingsModal() {
@@ -56,42 +53,6 @@ function AFKSettingsModal() {
 
 export default {
   onLoad: () => {
-    unpatchSheet = patcher.after("openLazy", ActionSheetModule, (args, res) => {
-      const key = args[1];
-
-      if (key == 4406 || key === "SetCustomStatusActionSheet") {
-        return res.then((component) => {
-          return function (props) {
-            const rendered = component(props);
-            
-            try {
-              const afkRow = React.createElement(FormRow, {
-                label: "AFK Ayarları",
-                subLabel: storage.enabled ? "Aktif" : "Devre Dışı",
-                onPress: () => {
-                  ActionSheetModule.hideActionSheet();
-                  openModal((modalProps) =>
-                    React.createElement(AFKSettingsModal, modalProps)
-                  );
-                }
-              });
-
-              if (rendered?.props?.children) {
-                return React.createElement(
-                  React.Fragment,
-                  null,
-                  rendered,
-                  afkRow
-                );
-              }
-            } catch (e) {}
-
-            return rendered;
-          };
-        });
-      }
-    });
-
     const Dispatcher = findByProps("dispatch", "subscribe");
     const handleMessage = (e) => {
       if (!storage.enabled) return;
@@ -127,7 +88,8 @@ export default {
   },
 
   onUnload: () => {
-    if (unpatchSheet) unpatchSheet();
     if (unpatchMessage) unpatchMessage();
-  }
+  },
+
+  settings: AFKSettingsModal
 };
