@@ -1,13 +1,15 @@
 import { storage } from "@vendetta/plugin";
-import { findByProps, findByStore } from "@vendetta/metro";
+import { findByProps, findByStore, findByTypeName } from "@vendetta/metro";
 import { React } from "@vendetta/metro/common";
-import { Forms, General } from "@vendetta/ui/components";
-
-const { FormSwitch, FormInput, FormSection } = Forms;
-const { ScrollView } = General;
 
 const UserStore = findByStore("UserStore");
 const MessageActions = findByProps("sendMessage");
+const Forms = findByProps("FormSwitch", "FormRow") || {};
+
+const FormSwitch = Forms.FormSwitch || findByTypeName("FormSwitch");
+const FormInput = Forms.FormInput || findByTypeName("FormInput");
+const FormSection = Forms.FormSection || findByTypeName("FormSection");
+const ScrollView = findByProps("ScrollView")?.ScrollView || React.Fragment;
 
 storage.enabled ??= false;
 storage.message ??= "Şu an AFK'yım, en kısa sürede dönüş yapacağım.";
@@ -22,10 +24,10 @@ function AFKSettingsModal() {
   return React.createElement(
     ScrollView,
     { style: { flex: 1, padding: 16 } },
-    React.createElement(
+    FormSection && React.createElement(
       FormSection,
       { title: "AFK DURUMU" },
-      React.createElement(FormSwitch, {
+      FormSwitch && React.createElement(FormSwitch, {
         label: "AFK Modunu Aktif Et",
         subLabel: "Etiketlendiğinde otomatik mesaj gönderir.",
         value: enabled,
@@ -35,10 +37,10 @@ function AFKSettingsModal() {
         }
       })
     ),
-    React.createElement(
+    FormSection && React.createElement(
       FormSection,
       { title: "OTOMATİK YANIT MESAJI" },
-      React.createElement(FormInput, {
+      FormInput && React.createElement(FormInput, {
         title: "AFK Mesajı",
         value: message,
         onChange: (val) => {
@@ -54,11 +56,13 @@ function AFKSettingsModal() {
 export default {
   onLoad: () => {
     const Dispatcher = findByProps("dispatch", "subscribe");
+    if (!Dispatcher) return;
+
     const handleMessage = (e) => {
       if (!storage.enabled) return;
 
-      const currentUser = UserStore.getCurrentUser();
-      const msg = e.message;
+      const currentUser = UserStore?.getCurrentUser();
+      const msg = e?.message;
 
       if (!msg || msg.author?.id === currentUser?.id) return;
 
@@ -74,9 +78,11 @@ export default {
 
         storage.lastSent[channelId] = now;
 
-        MessageActions.sendMessage(channelId, {
-          content: `<@${msg.author.id}> ${storage.message}`
-        });
+        if (MessageActions?.sendMessage) {
+          MessageActions.sendMessage(channelId, {
+            content: `<@${msg.author.id}> ${storage.message}`
+          });
+        }
       }
     };
 
