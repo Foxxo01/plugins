@@ -55,26 +55,27 @@ export default {
     try {
       const Dispatcher = findByProps("dispatch", "subscribe");
       const UserStore = findByStore("UserStore");
-      const RestAPI = findByProps("post", "get") || findByProps("HTTP");
+      const HTTP = findByProps("post", "get");
 
       if (!Dispatcher) return;
 
-      const handleMessage = (e) => {
+      const handleMessage = (data) => {
         try {
           if (!storage.enabled) return;
 
           const currentUser = UserStore?.getCurrentUser();
-          const msg = e?.message;
+          const msg = data?.message;
 
           if (!msg || !currentUser) return;
           if (msg.author?.id === currentUser.id) return;
 
           const myId = currentUser.id;
-          const mentionsArray = Array.isArray(msg.mentions) ? msg.mentions : [];
-          const isMentionedArray = mentionsArray.some((u) => u.id === myId);
-          const isMentionedText = msg.content && (msg.content.includes(`<@${myId}>`) || msg.content.includes(`<@!${myId}>`));
+          const mentions = Array.isArray(msg.mentions) ? msg.mentions : [];
+          
+          const isDirectlyMentioned = mentions.some((u) => u.id === myId);
+          const isRawMentioned = typeof msg.content === "string" && (msg.content.includes(`<@${myId}>`) || msg.content.includes(`<@!${myId}>`));
 
-          if (isMentionedArray || isMentionedText) {
+          if (isDirectlyMentioned || isRawMentioned) {
             const channelId = msg.channel_id;
             const now = Date.now();
 
@@ -84,24 +85,16 @@ export default {
 
             storage.lastSent[channelId] = now;
 
-            setTimeout(() => {
-              const contentText = `<@${msg.author.id}> ${storage.message}`;
-
-              if (RestAPI?.post) {
-                RestAPI.post({
-                  url: `/channels/${channelId}/messages`,
-                  body: {
-                    content: contentText,
-                    tts: false
-                  }
-                });
-              } else {
-                const MessageActions = findByProps("sendMessage");
-                if (MessageActions?.sendMessage) {
-                  MessageActions.sendMessage(channelId, { content: contentText });
+            if (HTTP?.post) {
+              HTTP.post({
+                url: `/channels/${channelId}/messages`,
+                body: {
+                  content: `<@${msg.author.id}> ${storage.message}`,
+                  tts: false,
+                  flags: 0
                 }
-              }
-            }, 500);
+              });
+            }
           }
         } catch (err) {}
       };
