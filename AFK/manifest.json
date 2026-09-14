@@ -1,0 +1,15 @@
+{
+  "name": "AFK",
+  "description": "Set up an AFK message and automatically type that message when you go AFK.",
+  "authors": [
+    {
+      "name": "URRally",
+      "id": "758758036562509855"
+    }
+  ],
+  "main": "index.js",
+  "vendetta": {
+    "icon": "ic_badge_staff"
+  },
+  "hash": "c3dac357339e4f6c9cb5485b9cf795ec1d211049aa5601af3918c57b841620a1"
+}
