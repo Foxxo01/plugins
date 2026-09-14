@@ -56,17 +56,16 @@ function AFKSettingsModal() {
 
 export default {
   onLoad: () => {
-    unpatchSheet = patcher.before("openLazy", ActionSheetModule, (args) => {
-      const [componentPromise, key] = args;
+    unpatchSheet = patcher.after("openLazy", ActionSheetModule, (args, res) => {
+      const key = args[1];
 
       if (key == 4406 || key === "SetCustomStatusActionSheet") {
-        args[0] = async () => {
-          const loaded = await componentPromise();
+        return res.then((component) => {
           return function (props) {
+            const rendered = component(props);
+            
             try {
-              const res = loaded(props);
-
-              const afkButton = React.createElement(FormRow, {
+              const afkRow = React.createElement(FormRow, {
                 label: "AFK Ayarları",
                 subLabel: storage.enabled ? "Aktif" : "Devre Dışı",
                 onPress: () => {
@@ -77,28 +76,19 @@ export default {
                 }
               });
 
-              if (res?.props) {
-                let children = res.props.children;
-
-                if (Array.isArray(children)) {
-                  children.unshift(afkButton);
-                } else if (children?.props?.children) {
-                  if (Array.isArray(children.props.children)) {
-                    children.props.children.unshift(afkButton);
-                  } else {
-                    children.props.children = [afkButton, children.props.children];
-                  }
-                } else {
-                  res.props.children = [afkButton, children];
-                }
+              if (rendered?.props?.children) {
+                return React.createElement(
+                  React.Fragment,
+                  null,
+                  rendered,
+                  afkRow
+                );
               }
+            } catch (e) {}
 
-              return res;
-            } catch (err) {
-              return loaded(props);
-            }
+            return rendered;
           };
-        };
+        });
       }
     });
 
