@@ -11,7 +11,7 @@ const UserStore = findByStore("UserStore");
 const MessageActions = findByProps("sendMessage");
 const ActionSheetModule = findByProps("openLazy", "hideActionSheet");
 
-// Storage varsayılan değerleri
+// Storage varsayılanları
 storage.enabled ??= false;
 storage.message ??= "Şu an AFK'yım, en kısa sürede dönüş yapacağım.";
 storage.lastSent ??= {};
@@ -19,7 +19,7 @@ storage.lastSent ??= {};
 let unpatchSheet;
 let unpatchMessage;
 
-// Modal Bileşeni (Pure JS React)
+// Modal Ayar Ekranı
 function AFKSettingsModal() {
   const [enabled, setEnabled] = React.useState(storage.enabled);
   const [message, setMessage] = React.useState(storage.message);
@@ -58,11 +58,12 @@ function AFKSettingsModal() {
 
 export default {
   onLoad: () => {
-    // 1. Menüye buton ekleme (SetCustomStatusActionSheet)
+    // 1. "4406" ID'li menüyü yakala ve AFK Ayarları butonunu yerleştir
     unpatchSheet = patcher.before("openLazy", ActionSheetModule, (args) => {
       const [componentPromise, key] = args;
 
-      if (key === "SetCustomStatusActionSheet" || key === "UserStatusPicker") {
+      // Hem sayısal 4406 hem de string kontrolleri
+      if (key === 4406 || key === "4406" || key === "SetCustomStatusActionSheet") {
         args[0] = async () => {
           const loaded = await componentPromise();
           return (props) => {
@@ -71,7 +72,7 @@ export default {
               const children = res?.props?.children?.props?.children || res?.props?.children;
               if (Array.isArray(children)) {
                 children.splice(
-                  2,
+                  2, // "Özel durum belirle" seçeneğinin hemen altı
                   0,
                   React.createElement(FormRow, {
                     label: "AFK Ayarları",
@@ -86,7 +87,7 @@ export default {
                 );
               }
             } catch (e) {
-              console.error("[AFK Plugin] Sheet patch hatası:", e);
+              console.error("[AFK Plugin] Patch hatası:", e);
             }
             return res;
           };
@@ -94,7 +95,7 @@ export default {
       }
     });
 
-    // 2. Etiketlenme Kontrolü ve Yanıt
+    // 2. Etiketlenme Kontrolü
     const Dispatcher = findByProps("dispatch", "subscribe");
     const handleMessage = (e) => {
       if (!storage.enabled) return;
@@ -102,7 +103,7 @@ export default {
       const currentUser = UserStore.getCurrentUser();
       const msg = e.message;
 
-      if (msg.author?.id === currentUser?.id) return;
+      if (!msg || msg.author?.id === currentUser?.id) return;
 
       const isMentioned = msg.mentions?.some((u) => u.id === currentUser?.id);
 
@@ -110,7 +111,7 @@ export default {
         const channelId = msg.channel_id;
         const now = Date.now();
 
-        // 30 saniye cooldown
+        // 30 saniyelik spam engeli
         if (storage.lastSent[channelId] && now - storage.lastSent[channelId] < 30000) {
           return;
         }
