@@ -55,7 +55,7 @@ export default {
     try {
       const Dispatcher = findByProps("dispatch", "subscribe");
       const UserStore = findByStore("UserStore");
-      const MessageActions = findByProps("sendMessage");
+      const MessageActions = findByProps("sendMessage", "receiveMessage");
 
       if (!Dispatcher) return;
 
@@ -66,15 +66,18 @@ export default {
           const currentUser = UserStore?.getCurrentUser();
           const msg = e?.message;
 
-          if (!msg || msg.author?.id === currentUser?.id) return;
+          if (!msg || !currentUser) return;
+          if (msg.author?.id === currentUser.id) return;
 
-          const isMentioned = msg.mentions?.some((u) => u.id === currentUser?.id);
+          const myId = currentUser.id;
+          const isMentionedArray = msg.mentions?.some((u) => u.id === myId);
+          const isMentionedText = msg.content?.includes(`<@${myId}>`) || msg.content?.includes(`<@!${myId}>`);
 
-          if (isMentioned) {
+          if (isMentionedArray || isMentionedText) {
             const channelId = msg.channel_id;
             const now = Date.now();
 
-            if (storage.lastSent[channelId] && now - storage.lastSent[channelId] < 30000) {
+            if (storage.lastSent[channelId] && now - storage.lastSent[channelId] < 15000) {
               return;
             }
 
@@ -82,7 +85,10 @@ export default {
 
             if (MessageActions?.sendMessage) {
               MessageActions.sendMessage(channelId, {
-                content: `<@${msg.author.id}> ${storage.message}`
+                content: `<@${msg.author.id}> ${storage.message}`,
+                tts: false,
+                invalidEmojis: [],
+                validNonShortcutEmojis: []
               });
             }
           }
