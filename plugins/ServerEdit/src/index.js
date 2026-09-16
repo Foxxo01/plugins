@@ -8,36 +8,42 @@ export default {
   onLoad: () => {
     try {
       const GuildStore = webpack.findByProps("getGuild", "getGuilds");
-      const GuildMemberCountStore = webpack.findByProps("getMemberCount", "getOnlineCount");
+      const Dispatcher = webpack.findByProps("dispatch", "subscribe");
+
+      const modifyGuild = (guild) => {
+        const targetId = storage?.targetGuildId;
+        if (guild && targetId && guild.id === targetId) {
+          const boost = storage?.boostCount ?? 999;
+          guild.premiumSubscriptionCount = boost;
+          guild.premiumTier = boost >= 14 ? 3 : boost >= 7 ? 2 : boost >= 2 ? 1 : 0;
+          guild.approximateMemberCount = storage?.memberCount ?? 50000;
+          guild.approximatePresenceCount = storage?.onlineCount ?? 12500;
+        }
+      };
 
       if (GuildStore) {
         unpatches.push(
           patcher.after("getGuild", GuildStore, (args, guild) => {
-            const targetId = storage?.targetGuildId;
-            if (guild && targetId && guild.id === targetId) {
-              guild.premiumSubscriptionCount = 999;
-              guild.premiumTier = 3;
-              guild.approximateMemberCount = 50000;
-              guild.approximatePresenceCount = 12500;
-            }
+            if (guild) modifyGuild(guild);
+            return guild;
           })
         );
       }
 
-      if (GuildMemberCountStore?.getMemberCount) {
-        unpatches.push(
-          patcher.after("getMemberCount", GuildMemberCountStore, (args, count) => {
-            if (args[0] && args[0] === storage?.targetGuildId) return 50000;
-          })
-        );
-      }
+      if (Dispatcher) {
+        const handleDispatch = (cmd) => {
+          if (cmd?.type === "GUILD_CREATE" || cmd?.type === "GUILD_UPDATE") {
+            if (cmd?.guild) modifyGuild(cmd.guild);
+          }
+        };
 
-      if (GuildMemberCountStore?.getOnlineCount) {
-        unpatches.push(
-          patcher.after("getOnlineCount", GuildMemberCountStore, (args, count) => {
-            if (args[0] && args[0] === storage?.targetGuildId) return 12500;
-          })
-        );
+        Dispatcher.subscribe("GUILD_CREATE", handleDispatch);
+        Dispatcher.subscribe("GUILD_UPDATE", handleDispatch);
+
+        unpatches.push(() => {
+          Dispatcher.unsubscribe("GUILD_CREATE", handleDispatch);
+          Dispatcher.unsubscribe("GUILD_UPDATE", handleDispatch);
+        });
       }
     } catch (e) {
       console.error(e);
