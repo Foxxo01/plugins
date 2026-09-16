@@ -1,40 +1,58 @@
+import { React } from "@vendetta/metro/common";
 import { patcher, webpack } from "@vendetta";
-import { storage } from "@vendetta/plugin";
 import Settings from "./Settings";
+
+const { TextInput } = webpack.findByProps("TextInput");
 
 let unpatches = [];
 
 export default {
   onLoad: () => {
     try {
-      storage.lastError = null;
+      const TextModule = webpack.findByByHeader ? webpack.findByHeader("Text") : webpack.findByDisplayName("Text");
 
-      const GuildStore = webpack.findByProps("getGuild", "getGuilds");
+      if (TextModule) {
+        unpatches.push(
+          patcher.after("render", TextModule, (args, res) => {
+            if (!res || !res.props) return res;
 
-      if (!GuildStore) {
-        storage.lastError = "GuildStore bulunamadı!";
-        return;
-      }
+            const [isEditing, setIsEditing] = React.useState(false);
+            const [currentText, setCurrentText] = React.useState(() => {
+              if (typeof res.props.children === "string") return res.props.children;
+              if (Array.isArray(res.props.children)) return res.props.children.join("");
+              return "";
+            });
 
-      unpatches.push(
-        patcher.after("getGuild", GuildStore, (args, guild) => {
-          try {
-            const targetId = storage?.targetGuildId;
-            if (guild && targetId && guild.id === targetId) {
-              const boost = storage?.boostCount ?? 999;
-              guild.premiumSubscriptionCount = boost;
-              guild.premiumTier = boost >= 14 ? 3 : boost >= 7 ? 2 : boost >= 2 ? 1 : 0;
-              guild.approximateMemberCount = storage?.memberCount ?? 50000;
-              guild.approximatePresenceCount = storage?.onlineCount ?? 12500;
+            if (isEditing) {
+              return React.createElement(TextInput, {
+                value: currentText,
+                onChangeText: (val) => setCurrentText(val),
+                onBlur: () => setIsEditing(false),
+                onSubmitEditing: () => setIsEditing(false),
+                autoFocus: true,
+                style: [res.props.style, { backgroundColor: "rgba(0, 0, 0, 0.3)", borderRadius: 4, padding: 2 }]
+              });
             }
-          } catch (err) {
-            storage.lastError = err.message;
-          }
-          return guild;
-        })
-      );
+
+            const originalOnLongPress = res.props.onLongPress;
+
+            res.props.onLongPress = (e) => {
+              setIsEditing(true);
+              if (typeof originalOnLongPress === "function") {
+                originalOnLongPress(e);
+              }
+            };
+
+            if (currentText) {
+              res.props.children = currentText;
+            }
+
+            return res;
+          })
+        );
+      }
     } catch (e) {
-      storage.lastError = e.message;
+      console.error(e);
     }
   },
 
