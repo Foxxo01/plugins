@@ -1,0 +1,15 @@
+{
+  "name": "Server Edit",
+  "description": "Change the boost for the member of the server you selected.",
+  "authors": [
+    {
+      "name": "URRally",
+      "id": "758758036562509855"
+    }
+  ],
+  "main": "index.js",
+  "vendetta": {
+    "icon": ""
+  },
+  "hash": "7825de17c9cf45870cc0fac195273a5731a0032d7eabe37e6132ab2b15760c2d"
+}
