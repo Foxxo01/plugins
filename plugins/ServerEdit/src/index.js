@@ -7,46 +7,34 @@ let unpatches = [];
 export default {
   onLoad: () => {
     try {
+      storage.lastError = null;
+
       const GuildStore = webpack.findByProps("getGuild", "getGuilds");
-      const Dispatcher = webpack.findByProps("dispatch", "subscribe");
 
-      const modifyGuild = (guild) => {
-        const targetId = storage?.targetGuildId;
-        if (guild && targetId && guild.id === targetId) {
-          const boost = storage?.boostCount ?? 999;
-          guild.premiumSubscriptionCount = boost;
-          guild.premiumTier = boost >= 14 ? 3 : boost >= 7 ? 2 : boost >= 2 ? 1 : 0;
-          guild.approximateMemberCount = storage?.memberCount ?? 50000;
-          guild.approximatePresenceCount = storage?.onlineCount ?? 12500;
-        }
-      };
-
-      if (GuildStore) {
-        unpatches.push(
-          patcher.after("getGuild", GuildStore, (args, guild) => {
-            if (guild) modifyGuild(guild);
-            return guild;
-          })
-        );
+      if (!GuildStore) {
+        storage.lastError = "GuildStore bulunamadı!";
+        return;
       }
 
-      if (Dispatcher) {
-        const handleDispatch = (cmd) => {
-          if (cmd?.type === "GUILD_CREATE" || cmd?.type === "GUILD_UPDATE") {
-            if (cmd?.guild) modifyGuild(cmd.guild);
+      unpatches.push(
+        patcher.after("getGuild", GuildStore, (args, guild) => {
+          try {
+            const targetId = storage?.targetGuildId;
+            if (guild && targetId && guild.id === targetId) {
+              const boost = storage?.boostCount ?? 999;
+              guild.premiumSubscriptionCount = boost;
+              guild.premiumTier = boost >= 14 ? 3 : boost >= 7 ? 2 : boost >= 2 ? 1 : 0;
+              guild.approximateMemberCount = storage?.memberCount ?? 50000;
+              guild.approximatePresenceCount = storage?.onlineCount ?? 12500;
+            }
+          } catch (err) {
+            storage.lastError = err.message;
           }
-        };
-
-        Dispatcher.subscribe("GUILD_CREATE", handleDispatch);
-        Dispatcher.subscribe("GUILD_UPDATE", handleDispatch);
-
-        unpatches.push(() => {
-          Dispatcher.unsubscribe("GUILD_CREATE", handleDispatch);
-          Dispatcher.unsubscribe("GUILD_UPDATE", handleDispatch);
-        });
-      }
+          return guild;
+        })
+      );
     } catch (e) {
-      console.error(e);
+      storage.lastError = e.message;
     }
   },
 
