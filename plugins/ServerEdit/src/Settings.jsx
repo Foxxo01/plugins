@@ -2,7 +2,7 @@ import { React } from "@vendetta/metro/common";
 import { storage } from "@vendetta/plugin";
 import { Forms } from "@vendetta/ui/components";
 
-const { FormInput } = Forms;
+const { FormInput, FormText } = Forms;
 
 export default function Settings() {
   return (
@@ -34,6 +34,9 @@ export default function Settings() {
         placeholder="12500"
         keyboardType="numeric"
       />
+      <FormText style={{ marginTop: 10, color: "red" }}>
+        {storage.lastError ? `Son Hata: ${storage.lastError}` : "Hata Yok (Çalışıyor)"}
+      </FormText>
     </>
   );
 }
