@@ -9,8 +9,40 @@ export default {
       const UserStore = findByProps("getCurrentUser", "getUser") || findByStoreName("UserStore");
       const GuildStore = findByProps("getGuilds", "getGuildsArray") || findByStoreName("GuildStore");
       const UserProfileStore = findByStoreName("UserProfileStore") || findByProps("getUserProfile");
+      const ChannelStore = findByStoreName("ChannelStore") || findByProps("getChannel", "hasChannel");
+      const GuildChannelStore = findByStoreName("GuildChannelStore") || findByProps("getChannels");
 
-      // 1. Yetki Patching
+      // [YENİ] 0. Kanal İsimlerini ve Verilerini Zorla Yükleme Patch'i
+      // Yetki hilesinden dolayı ismi yüklenemeyen kilitli kanalların orijinal isimlerini Discord belleğinden kurtarır.
+      if (GuildChannelStore && ChannelStore) {
+        try {
+          if (typeof GuildChannelStore.getChannels === "function") {
+            const origGetChannels = GuildChannelStore.getChannels;
+            GuildChannelStore.getChannels = function (guildId: string) {
+              const res = origGetChannels.apply(this, arguments);
+              if (res) {
+                // SELECTABLE veya normal dizi/obje ayrımı yapmaksızın tüm kanalları tarar
+                const list = res.SELECTABLE || (Array.isArray(res) ? res : Object.values(res));
+                list.forEach((c: any) => {
+                  const item = c?.channel || c;
+                  if (item && item.id) {
+                    const cacheChannel = ChannelStore.getChannel(item.id);
+                    // Eğer kanal ismi boşsa veya yer tutucuysa bellekteki orijinal ismi zorla yazdırır
+                    if (cacheChannel?.name && (!item.name || item.name.includes("erişim") || item.name.includes("hidden"))) {
+                      if (c.channel) c.channel.name = cacheChannel.name;
+                      else c.name = cacheChannel.name;
+                    }
+                  }
+                });
+              }
+              return res;
+            };
+            unpatches.push(() => { GuildChannelStore.getChannels = origGetChannels; });
+          }
+        } catch (e) {}
+      }
+
+      // 1. Yetki Patching (Orijinal Yapı Korundu)
       if (PermissionStore) {
         try {
           if (typeof PermissionStore.computePermissions === "function") {
@@ -27,7 +59,7 @@ export default {
         } catch (e) {}
       }
 
-      // 2. Sunucu Sahibi Patching
+      // 2. Sunucu Sahibi Patching (Orijinal Yapı Korundu)
       if (GuildStore && UserStore) {
         try {
           const patchGuilds = () => {
@@ -49,7 +81,7 @@ export default {
         } catch (e) {}
       }
 
-      // 3. Rozet Patching (Birebir Orijinal Discord Hiyerarşisi)
+      // 3. Rozet Patching (Birebir Orijinal Discord Hiyerarşisi Korundu)
       if (UserProfileStore && UserStore) {
         try {
           const origGetProfile = UserProfileStore.getUserProfile;
@@ -74,7 +106,7 @@ export default {
                     flags: 1,
                     description: staffLabel,
                     icon: "5e74e9b61934fc1f67c65515d1f7e60d",
-                    link: "https://discord.com/company"
+                    link: "https://discord.com"
                   };
 
                   const bugHunterBadge = {
@@ -83,7 +115,7 @@ export default {
                     flags: 4,
                     description: bugHunterLabel,
                     icon: "2717692c7dca7289b35297368a940dd0",
-                    link: "https://support.discord.com"
+                    link: "https://discord.com"
                   };
 
                   const nitroFireBadge = {
@@ -91,13 +123,11 @@ export default {
                     key: "nitro_fire",
                     description: "Nitro Fire",
                     icon: "cff7119d4417261c3f52fde8a94ba8e5",
-                    link: "https://discord.com/nitro"
+                    link: "https://discord.com"
                   };
 
-                  // Eski/Çakışan rozetleri temizle
                   badges = badges.filter((b: any) => b && b.id !== "staff" && b.id !== "bug_hunter" && b.id !== "nitro_fire" && b.id !== "premium");
 
-                  // Birebir Resmi Discord Öncelik Haritası
                   const getPriority = (badge: any) => {
                     const id = (badge?.id || badge?.key || "").toLowerCase();
                     if (id.includes("staff")) return 1;
@@ -107,8 +137,8 @@ export default {
                     if (id.includes("bug_hunter")) return 5;
                     if (id.includes("developer") || id.includes("dev")) return 6;
                     if (id.includes("early")) return 7;
-                    if (id.includes("nitro") || id.includes("premium")) return 8; // Nitro grubu (Fire dâhil)
-                    if (id.includes("booster") || id.includes("guild")) return 9;  // Boost grubu
+                    if (id.includes("nitro") || id.includes("premium")) return 8;
+                    if (id.includes("booster") || id.includes("guild")) return 9;
                     return 99;
                   };
 
