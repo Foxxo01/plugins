@@ -208,21 +208,20 @@ if (UserProfileStore && UserStore) {
         }
       };
 
-      unpatches.push(() => {
+     unpatches.push(() => {
         UserProfileStore.getUserProfile = origGetProfile;
       });
     }
   } catch (e) {}
+  },
+
+  onUnload: () => {
+    unpatches.forEach((u) => {
+      try {
+        u();
+      } catch (e) {}
+    });
+
+    unpatches.length = 0;
   }
-},
-
-onUnload: () => {
-  unpatches.forEach((u) => {
-    try {
-      u();
-    } catch (e) {}
-  });
-
-  unpatches.length = 0;
-}
 };
