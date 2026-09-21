@@ -110,8 +110,8 @@ export default {
                   };
 
                   const nitroFireBadge = {
-                    id: "nitro",
-                    key: "nitro_fire",
+                    id: "nitro_fire",
+                    key: "nitro",
                     description: "Nitro Fire",
                     icon: "cff7119d4417261c3f52fde8a94ba8e5",
                     link: "https://discord.com"
