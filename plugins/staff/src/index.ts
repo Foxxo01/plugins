@@ -81,86 +81,136 @@ export default {
         } catch (e) {}
       }
 
-      // 3. Rozet Patching (Birebir Orijinal Discord Hiyerarşisi Korundu)
-      if (UserProfileStore && UserStore) {
+// 3. Rozet Patching
+if (UserProfileStore && UserStore) {
+  try {
+    const origGetProfile = UserProfileStore.getUserProfile;
+
+    if (typeof origGetProfile === "function") {
+      UserProfileStore.getUserProfile = function (userId: string) {
+        const profile = origGetProfile.apply(this, arguments);
+
         try {
-          const origGetProfile = UserProfileStore.getUserProfile;
-          if (typeof origGetProfile === "function") {
-            UserProfileStore.getUserProfile = function (userId: string) {
-              const profile = origGetProfile.apply(this, arguments);
-              try {
-                const currentUser = UserStore.getCurrentUser?.();
-                if (profile && currentUser?.id && userId === currentUser.id) {
-                  let badges = Array.isArray(profile.badges) ? [...profile.badges] : [];
+          const currentUser = UserStore.getCurrentUser?.();
 
-                  const LocaleStore = findByStoreName("LocaleStore") || findByProps("locale");
-                  const locale = (LocaleStore?.locale || "en").toLowerCase();
-                  const isTurkish = locale.startsWith("tr");
-
-                  const staffLabel = isTurkish ? "Discord Personeli" : "Discord Staff";
-                  const bugHunterLabel = isTurkish ? "Discord Bug Hunter" : "Discord Bug Hunter";
-
-                  const staffBadge = {
-                    id: "staff",
-                    key: "staff",
-                    flags: 1,
-                    description: staffLabel,
-                    icon: "5e74e9b61934fc1f67c65515d1f7e60d",
-                    link: "https://discord.com"
-                  };
-
-                  const nitroFireBadge = {
-                    id: "nitro_fire",
-                    key: "nitro_fire",
-                    description: "Nitro Fire",
-                    icon: "cff7119d4417261c3f52fde8a94ba8e5",
-                    link: "https://discord.com"
-                  };
-
-                  const bugHunterBadge = {
-                    id: "bug_hunter",
-                    key: "bug_hunter",
-                    flags: 4,
-                    description: bugHunterLabel,
-                    icon: "2717692c7dca7289b35297368a940dd0",
-                    link: "https://discord.com"
-                  };
-
-                  badges = badges.filter((b: any) => b && b.id !== "staff" && b.id !== "bug_hunter" && b.id !== "nitro_fire" && b.id !== "premium");
-
-                  const getPriority = (badge: any) => {
-                    const id = (badge?.id || badge?.key || "").toLowerCase();
-                    if (id.includes("staff")) return 1;
-                    if (id.includes("nitro") || id.includes("premium")) return 2;
-                    if (id.includes("partner")) return 3;
-                    if (id.includes("certified_moderator") || id.includes("mod")) return 4;
-                    if (id.includes("hypesquad")) return 5;
-                    if (id.includes("bug_hunter")) return 6;
-                    if (id.includes("developer") || id.includes("dev")) return 7;
-                    if (id.includes("early")) return 8;
-                    if (id.includes("booster") || id.includes("guild")) return 9;
-                    return 99;
-                  };
-
-                  const updatedBadges = [staffBadge, bugHunterBadge, nitroFireBadge, ...badges];
-                  updatedBadges.sort((a, b) => getPriority(a) - getPriority(b));
-
-                  profile.badges = updatedBadges;
-                }
-              } catch (e) {}
-              return profile;
-            };
-            unpatches.push(() => { UserProfileStore.getUserProfile = origGetProfile; });
+          // Sadece kendi profilinde çalış
+          if (!profile || !currentUser?.id || userId !== currentUser.id) {
+            return profile;
           }
-        } catch (e) {}
-      }
-    } catch (e) {}
-  },
 
-  onUnload: () => {
-    unpatches.forEach((u) => {
-      try { u(); } catch (e) {}
-    });
-    unpatches.length = 0;
-  }
-};
+          // Orijinal profile objesini doğrudan değiştirme
+          const newProfile = {
+            ...profile,
+            badges: Array.isArray(profile.badges)
+              ? [...profile.badges]
+              : []
+          };
+
+          const LocaleStore =
+            findByStoreName("LocaleStore") ||
+            findByProps("locale");
+
+          const locale =
+            (LocaleStore?.locale || "en").toLowerCase();
+
+          const isTurkish = locale.startsWith("tr");
+
+          const staffBadge = {
+            id: "staff",
+            key: "staff",
+            flags: 1,
+            description: isTurkish
+              ? "Discord Personeli"
+              : "Discord Staff",
+            icon: "5e74e9b61934fc1f67c65515d1f7e60d",
+            link: "https://discord.com"
+          };
+
+          const bugHunterBadge = {
+            id: "bug_hunter",
+            key: "bug_hunter",
+            flags: 4,
+            description: "Discord Bug Hunter",
+            icon: "2717692c7dca7289b35297368a940dd0",
+            link: "https://discord.com"
+          };
+
+          const nitroFireBadge = {
+            id: "nitro_fire",
+            key: "nitro_fire",
+            description: "Nitro Fire",
+            icon: "cff7119d4417261c3f52fde8a94ba8e5",
+            link: "https://discord.com"
+          };
+
+          // Sahte badge'lerin eski kopyalarını temizle
+          let badges = newProfile.badges.filter((b: any) => {
+            const id = String(b?.id || b?.key || "").toLowerCase();
+
+            return (
+              id !== "staff" &&
+              id !== "bug_hunter" &&
+              id !== "nitro_fire"
+            );
+          });
+
+          // Her badge yalnızca bir kere eklenir
+          badges.push(staffBadge);
+          badges.push(bugHunterBadge);
+          badges.push(nitroFireBadge);
+
+          // ID/key bazında kesin duplicate temizliği
+          const seen = new Set<string>();
+
+          badges = badges.filter((badge: any) => {
+            const id = String(
+              badge?.id || badge?.key || ""
+            ).toLowerCase();
+
+            if (!id) return true;
+
+            if (seen.has(id)) {
+              return false;
+            }
+
+            seen.add(id);
+            return true;
+          });
+
+          // Öncelik sıralaması
+          const getPriority = (badge: any) => {
+            const id = String(
+              badge?.id || badge?.key || ""
+            ).toLowerCase();
+
+            if (id === "staff") return 1;
+            if (id === "nitro_fire") return 2;
+            if (id.includes("partner")) return 3;
+            if (id.includes("certified_moderator")) return 4;
+            if (id.includes("hypesquad")) return 5;
+            if (id === "bug_hunter") return 6;
+            if (id.includes("developer")) return 7;
+            if (id.includes("early")) return 8;
+            if (id.includes("booster")) return 9;
+
+            return 99;
+          };
+
+          badges.sort(
+            (a, b) => getPriority(a) - getPriority(b)
+          );
+
+          newProfile.badges = badges;
+
+          return newProfile;
+        } catch (e) {
+          return profile;
+        }
+      };
+
+      unpatches.push(() => {
+        UserProfileStore.getUserProfile = origGetProfile;
+      });
+    }
+  } catch (e) {}
+}
