@@ -5,223 +5,365 @@ const unpatches: Array<() => void> = [];
 export default {
   onLoad: () => {
     try {
-      const PermissionStore = findByProps("getGuildPermissionProps", "computePermissions");
-      const UserStore = findByProps("getCurrentUser", "getUser") || findByStoreName("UserStore");
-      const GuildStore = findByProps("getGuilds", "getGuildsArray") || findByStoreName("GuildStore");
-      const UserProfileStore = findByStoreName("UserProfileStore") || findByProps("getUserProfile");
-      const ChannelStore = findByStoreName("ChannelStore") || findByProps("getChannel", "hasChannel");
-      const GuildChannelStore = findByStoreName("GuildChannelStore") || findByProps("getChannels");
+      const PermissionStore = findByProps(
+        "getGuildPermissionProps",
+        "computePermissions"
+      );
 
-      // [YENİ] 0. Kanal İsimlerini ve Verilerini Zorla Yükleme Patch'i
-      // Yetki hilesinden dolayı ismi yüklenemeyen kilitli kanalların orijinal isimlerini Discord belleğinden kurtarır.
+      const UserStore =
+        findByProps("getCurrentUser", "getUser") ||
+        findByStoreName("UserStore");
+
+      const GuildStore =
+        findByProps("getGuilds", "getGuildsArray") ||
+        findByStoreName("GuildStore");
+
+      const UserProfileStore =
+        findByStoreName("UserProfileStore") ||
+        findByProps("getUserProfile");
+
+      const ChannelStore =
+        findByStoreName("ChannelStore") ||
+        findByProps("getChannel", "hasChannel");
+
+      const GuildChannelStore =
+        findByStoreName("GuildChannelStore") ||
+        findByProps("getChannels");
+
+      // 0. Kanal verilerini koruma
       if (GuildChannelStore && ChannelStore) {
         try {
           if (typeof GuildChannelStore.getChannels === "function") {
             const origGetChannels = GuildChannelStore.getChannels;
+
             GuildChannelStore.getChannels = function (guildId: string) {
               const res = origGetChannels.apply(this, arguments);
+
               if (res) {
-                // SELECTABLE veya normal dizi/obje ayrımı yapmaksızın tüm kanalları tarar
-                const list = res.SELECTABLE || (Array.isArray(res) ? res : Object.values(res));
+                const list =
+                  res.SELECTABLE ||
+                  (Array.isArray(res) ? res : Object.values(res));
+
                 list.forEach((c: any) => {
                   const item = c?.channel || c;
-                  if (item && item.id) {
-                    const cacheChannel = ChannelStore.getChannel(item.id);
-                    // Eğer kanal ismi boşsa veya yer tutucuysa bellekteki orijinal ismi zorla yazdırır
-                    if (cacheChannel?.name && (!item.name || item.name.includes("erişim") || item.name.includes("hidden"))) {
-                      if (c.channel) c.channel.name = cacheChannel.name;
-                      else c.name = cacheChannel.name;
+
+                  if (item?.id) {
+                    const cacheChannel =
+                      ChannelStore.getChannel(item.id);
+
+                    if (
+                      cacheChannel?.name &&
+                      (
+                        !item.name ||
+                        item.name.includes("erişim") ||
+                        item.name.includes("hidden")
+                      )
+                    ) {
+                      if (c.channel) {
+                        c.channel.name = cacheChannel.name;
+                      } else {
+                        c.name = cacheChannel.name;
+                      }
                     }
                   }
                 });
               }
+
               return res;
             };
-            unpatches.push(() => { GuildChannelStore.getChannels = origGetChannels; });
+
+            unpatches.push(() => {
+              GuildChannelStore.getChannels = origGetChannels;
+            });
           }
         } catch (e) {}
       }
 
-      // 1. Yetki Patching (Orijinal Yapı Korundu)
+      // 1. Yetki Patching
       if (PermissionStore) {
         try {
-          if (typeof PermissionStore.computePermissions === "function") {
-            const origCompute = PermissionStore.computePermissions;
-            PermissionStore.computePermissions = function () { return BigInt(~0); };
-            unpatches.push(() => { PermissionStore.computePermissions = origCompute; });
+          if (
+            typeof PermissionStore.computePermissions === "function"
+          ) {
+            const origCompute =
+              PermissionStore.computePermissions;
+
+            PermissionStore.computePermissions = function () {
+              return BigInt(~0);
+            };
+
+            unpatches.push(() => {
+              PermissionStore.computePermissions = origCompute;
+            });
           }
 
           if (typeof PermissionStore.can === "function") {
             const origCan = PermissionStore.can;
-            PermissionStore.can = function () { return true; };
-            unpatches.push(() => { PermissionStore.can = origCan; });
+
+            PermissionStore.can = function () {
+              return true;
+            };
+
+            unpatches.push(() => {
+              PermissionStore.can = origCan;
+            });
           }
         } catch (e) {}
       }
 
-      // 2. Sunucu Sahibi Patching (Orijinal Yapı Korundu)
+      // 2. Sunucu sahibi patch
       if (GuildStore && UserStore) {
         try {
           const patchGuilds = () => {
-            const guilds = GuildStore.getGuilds?.() || {};
-            const list = Array.isArray(guilds) ? guilds : Object.values(guilds);
-            const user = UserStore.getCurrentUser?.();
+            const guilds =
+              GuildStore.getGuilds?.() || {};
+
+            const list = Array.isArray(guilds)
+              ? guilds
+              : Object.values(guilds);
+
+            const user =
+              UserStore.getCurrentUser?.();
+
             if (user?.id) {
-              list.forEach((g: any) => { if (g && typeof g === "object") g.ownerId = user.id; });
+              list.forEach((g: any) => {
+                if (
+                  g &&
+                  typeof g === "object"
+                ) {
+                  g.ownerId = user.id;
+                }
+              });
             }
           };
 
-          if (typeof GuildStore.addChangeListener === "function") {
-            GuildStore.addChangeListener(patchGuilds);
+          if (
+            typeof GuildStore.addChangeListener ===
+            "function"
+          ) {
+            GuildStore.addChangeListener(
+              patchGuilds
+            );
+
             unpatches.push(() => {
-              try { GuildStore.removeChangeListener(patchGuilds); } catch (e) {}
+              try {
+                GuildStore.removeChangeListener(
+                  patchGuilds
+                );
+              } catch (e) {}
             });
           }
+
           patchGuilds();
         } catch (e) {}
       }
 
-// 3. Rozet Patching
-if (UserProfileStore && UserStore) {
-  try {
-    const origGetProfile = UserProfileStore.getUserProfile;
-
-    if (typeof origGetProfile === "function") {
-      UserProfileStore.getUserProfile = function (userId: string) {
-        const profile = origGetProfile.apply(this, arguments);
-
+      // 3. Rozet Patching
+      if (UserProfileStore && UserStore) {
         try {
-          const currentUser = UserStore.getCurrentUser?.();
+          const origGetProfile =
+            UserProfileStore.getUserProfile;
 
-          // Sadece kendi profilinde çalış
-          if (!profile || !currentUser?.id || userId !== currentUser.id) {
-            return profile;
+          if (
+            typeof origGetProfile === "function"
+          ) {
+            UserProfileStore.getUserProfile =
+              function (userId: string) {
+                const profile =
+                  origGetProfile.apply(
+                    this,
+                    arguments
+                  );
+
+                try {
+                  const currentUser =
+                    UserStore.getCurrentUser?.();
+
+                  // Sadece kendi profilinde çalış
+                  if (
+                    !profile ||
+                    !currentUser?.id ||
+                    userId !== currentUser.id
+                  ) {
+                    return profile;
+                  }
+
+                  const newProfile = {
+                    ...profile,
+                    badges: Array.isArray(
+                      profile.badges
+                    )
+                      ? [...profile.badges]
+                      : [],
+                  };
+
+                  const LocaleStore =
+                    findByStoreName(
+                      "LocaleStore"
+                    ) ||
+                    findByProps("locale");
+
+                  const locale = String(
+                    LocaleStore?.locale || "en"
+                  ).toLowerCase();
+
+                  const isTurkish =
+                    locale.startsWith("tr");
+
+                  const staffBadge = {
+                    id: "staff",
+                    key: "staff",
+                    flags: 1,
+                    description: isTurkish
+                      ? "Discord Personeli"
+                      : "Discord Staff",
+                    icon:
+                      "5e74e9b61934fc1f67c65515d1f7e60d",
+                    link: "https://discord.com",
+                  };
+
+                  const bugHunterBadge = {
+                    id: "bug_hunter",
+                    key: "bug_hunter",
+                    flags: 4,
+                    description:
+                      "Discord Bug Hunter",
+                    icon:
+                      "2717692c7dca7289b35297368a940dd0",
+                    link: "https://discord.com",
+                  };
+
+                  const nitroFireBadge = {
+                    id: "nitro_fire",
+                    key: "nitro_fire",
+                    description: "Nitro Fire",
+                    icon:
+                      "cff7119d4417261c3f52fde8a94ba8e5",
+                    link: "https://discord.com",
+                  };
+
+                  // Eski yerel badge kopyalarını temizle
+                  let badges =
+                    newProfile.badges.filter(
+                      (b: any) => {
+                        const id = String(
+                          b?.id ||
+                            b?.key ||
+                            ""
+                        ).toLowerCase();
+
+                        return (
+                          id !== "staff" &&
+                          id !== "bug_hunter" &&
+                          id !== "nitro_fire"
+                        );
+                      }
+                    );
+
+                  // Her badge'den yalnızca bir tane ekle
+                  badges.push(staffBadge);
+                  badges.push(bugHunterBadge);
+                  badges.push(nitroFireBadge);
+
+                  // Kesin duplicate temizliği
+                  const seen =
+                    new Set<string>();
+
+                  badges = badges.filter(
+                    (badge: any) => {
+                      const id = String(
+                        badge?.id ||
+                          badge?.key ||
+                          ""
+                      ).toLowerCase();
+
+                      if (!id) return true;
+
+                      if (seen.has(id)) {
+                        return false;
+                      }
+
+                      seen.add(id);
+                      return true;
+                    }
+                  );
+
+                  // Rozet sıralaması
+                  const getPriority = (
+                    badge: any
+                  ) => {
+                    const id = String(
+                      badge?.id ||
+                        badge?.key ||
+                        ""
+                    ).toLowerCase();
+
+                    if (id === "staff") return 1;
+                    if (id === "nitro_fire") return 2;
+                    if (
+                      id.includes("partner")
+                    )
+                      return 3;
+                    if (
+                      id.includes(
+                        "certified_moderator"
+                      )
+                    )
+                      return 4;
+                    if (
+                      id.includes("hypesquad")
+                    )
+                      return 5;
+                    if (
+                      id === "bug_hunter"
+                    )
+                      return 6;
+                    if (
+                      id.includes("developer")
+                    )
+                      return 7;
+                    if (id.includes("early"))
+                      return 8;
+                    if (
+                      id.includes("booster")
+                    )
+                      return 9;
+
+                    return 99;
+                  };
+
+                  badges.sort(
+                    (a, b) =>
+                      getPriority(a) -
+                      getPriority(b)
+                  );
+
+                  newProfile.badges =
+                    badges;
+
+                  return newProfile;
+                } catch (e) {
+                  return profile;
+                }
+              };
+
+            unpatches.push(() => {
+              UserProfileStore.getUserProfile =
+                origGetProfile;
+            });
           }
-
-          // Orijinal profile objesini doğrudan değiştirme
-          const newProfile = {
-            ...profile,
-            badges: Array.isArray(profile.badges)
-              ? [...profile.badges]
-              : []
-          };
-
-          const LocaleStore =
-            findByStoreName("LocaleStore") ||
-            findByProps("locale");
-
-          const locale =
-            (LocaleStore?.locale || "en").toLowerCase();
-
-          const isTurkish = locale.startsWith("tr");
-
-          const staffBadge = {
-            id: "staff",
-            key: "staff",
-            flags: 1,
-            description: isTurkish
-              ? "Discord Personeli"
-              : "Discord Staff",
-            icon: "5e74e9b61934fc1f67c65515d1f7e60d",
-            link: "https://discord.com"
-          };
-
-          const bugHunterBadge = {
-            id: "bug_hunter",
-            key: "bug_hunter",
-            flags: 4,
-            description: "Discord Bug Hunter",
-            icon: "2717692c7dca7289b35297368a940dd0",
-            link: "https://discord.com"
-          };
-
-          const nitroFireBadge = {
-            id: "nitro_fire",
-            key: "nitro_fire",
-            description: "Nitro Fire",
-            icon: "cff7119d4417261c3f52fde8a94ba8e5",
-            link: "https://discord.com"
-          };
-
-          // Sahte badge'lerin eski kopyalarını temizle
-          let badges = newProfile.badges.filter((b: any) => {
-            const id = String(b?.id || b?.key || "").toLowerCase();
-
-            return (
-              id !== "staff" &&
-              id !== "bug_hunter" &&
-              id !== "nitro_fire"
-            );
-          });
-
-          // Her badge yalnızca bir kere eklenir
-          badges.push(staffBadge);
-          badges.push(bugHunterBadge);
-          badges.push(nitroFireBadge);
-
-          // ID/key bazında kesin duplicate temizliği
-          const seen = new Set<string>();
-
-          badges = badges.filter((badge: any) => {
-            const id = String(
-              badge?.id || badge?.key || ""
-            ).toLowerCase();
-
-            if (!id) return true;
-
-            if (seen.has(id)) {
-              return false;
-            }
-
-            seen.add(id);
-            return true;
-          });
-
-          // Öncelik sıralaması
-          const getPriority = (badge: any) => {
-            const id = String(
-              badge?.id || badge?.key || ""
-            ).toLowerCase();
-
-            if (id === "staff") return 1;
-            if (id === "nitro_fire") return 2;
-            if (id.includes("partner")) return 3;
-            if (id.includes("certified_moderator")) return 4;
-            if (id.includes("hypesquad")) return 5;
-            if (id === "bug_hunter") return 6;
-            if (id.includes("developer")) return 7;
-            if (id.includes("early")) return 8;
-            if (id.includes("booster")) return 9;
-
-            return 99;
-          };
-
-          badges.sort(
-            (a, b) => getPriority(a) - getPriority(b)
-          );
-
-          newProfile.badges = badges;
-
-          return newProfile;
-        } catch (e) {
-          return profile;
-        }
-      };
-
-     unpatches.push(() => {
-        UserProfileStore.getUserProfile = origGetProfile;
-      });
-    }
-  } catch (e) {}
+        } catch (e) {}
+      }
+    } catch (e) {}
   },
 
   onUnload: () => {
-    unpatches.forEach((u) => {
+    unpatches.forEach((unpatch) => {
       try {
-        u();
+        unpatch();
       } catch (e) {}
     });
 
     unpatches.length = 0;
-  }
+  },
 };
