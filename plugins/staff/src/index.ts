@@ -97,8 +97,8 @@ export default {
                   const locale = (LocaleStore?.locale || "en").toLowerCase();
                   const isTurkish = locale.startsWith("tr");
 
-                  const staffLabel = isTurkish ? "Discord Çalışanı" : "Discord Staff";
-                  const bugHunterLabel = isTurkish ? "Discord Hata Avcısı" : "Discord Bug Hunter";
+                  const staffLabel = isTurkish ? "Discord Personeli" : "Discord Staff";
+                  const bugHunterLabel = isTurkish ? "Discord Bug Hunter" : "Discord Bug Hunter";
 
                   const staffBadge = {
                     id: "staff",
@@ -131,13 +131,13 @@ export default {
                   const getPriority = (badge: any) => {
                     const id = (badge?.id || badge?.key || "").toLowerCase();
                     if (id.includes("staff")) return 1;
-                    if (id.includes("partner")) return 2;
-                    if (id.includes("certified_moderator") || id.includes("mod")) return 3;
-                    if (id.includes("hypesquad")) return 4;
-                    if (id.includes("bug_hunter")) return 5;
-                    if (id.includes("developer") || id.includes("dev")) return 6;
-                    if (id.includes("early")) return 7;
-                    if (id.includes("nitro") || id.includes("premium")) return 8;
+                    if (id.includes("nitro") || id.includes("premium")) return 2;
+                    if (id.includes("partner")) return 3;
+                    if (id.includes("certified_moderator") || id.includes("mod")) return 4;
+                    if (id.includes("hypesquad")) return 5;
+                    if (id.includes("bug_hunter")) return 6;
+                    if (id.includes("developer") || id.includes("dev")) return 7;
+                    if (id.includes("early")) return 8;
                     if (id.includes("booster") || id.includes("guild")) return 9;
                     return 99;
                   };
