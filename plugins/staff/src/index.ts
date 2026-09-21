@@ -109,20 +109,20 @@ export default {
                     link: "https://discord.com"
                   };
 
+                  const nitroFireBadge = {
+                    id: "nitro_fire",
+                    key: "nitro_fire",
+                    description: "Nitro Fire",
+                    icon: "cff7119d4417261c3f52fde8a94ba8e5",
+                    link: "https://discord.com"
+                  };
+
                   const bugHunterBadge = {
                     id: "bug_hunter",
                     key: "bug_hunter",
                     flags: 4,
                     description: bugHunterLabel,
                     icon: "2717692c7dca7289b35297368a940dd0",
-                    link: "https://discord.com"
-                  };
-
-                  const nitroFireBadge = {
-                    id: "nitro_fire",
-                    key: "nitro_fire",
-                    description: "Nitro Fire",
-                    icon: "cff7119d4417261c3f52fde8a94ba8e5",
                     link: "https://discord.com"
                   };
 
