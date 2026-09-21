@@ -213,4 +213,16 @@ if (UserProfileStore && UserStore) {
       });
     }
   } catch (e) {}
+  }
+},
+
+onUnload: () => {
+  unpatches.forEach((u) => {
+    try {
+      u();
+    } catch (e) {}
+  });
+
+  unpatches.length = 0;
 }
+};
