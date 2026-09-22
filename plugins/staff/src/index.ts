@@ -2,6 +2,42 @@ import { findByProps, findByStoreName } from "@vendetta/metro";
 
 const unpatches: Array<() => void> = [];
 
+const VERSION_TYPE = "beta";
+
+const VERSION_BADGES: Record<string, any> = {
+  beta: {
+    id: "custom_beta",
+    key: "custom_beta",
+    description: "Beta",
+    icon: "https://cdn.discordapp.com/attachments/1536374550302953583/1551983865592152245/1790091886924.png?ex=6ab3f51c&is=6ab2a39c&hm=300eba4285efb26c73bacf71627d029f4f161b0ff0deac3ad9cca69b329cdf91&",
+    link: "https://discord.com"
+  },
+
+  alpha: {
+    id: "custom_alpha",
+    key: "custom_alpha",
+    description: "Alpha",
+    icon: "https://cdn.discordapp.com/attachments/1536374550302953583/1551983896915222540/1790091895984.png?ex=6ab3f523&is=6ab2a3a3&hm=65ddac561bea57b11e7a16fcd0032ae44474fa0620cba7342a71b15b142e5fca&",
+    link: "https://discord.com"
+  },
+
+  experiment: {
+    id: "custom_experiment",
+    key: "custom_experiment",
+    description: "Experiment",
+    icon: "https://cdn.discordapp.com/attachments/1536374550302953583/1551983912459309066/1790091908099.png?ex=6ab3f527&is=6ab2a3a7&hm=b8cfce516dac0fd0bddb84e68e7508c1cf9e5363174d346b2e24b078168cbcf7&",
+    link: "https://discord.com"
+  },
+
+  staff: {
+    id: "custom_staff",
+    key: "custom_staff",
+    description: "Staff",
+    icon: "https://cdn.discordapp.com/attachments/1536374550302953583/1551983917228367985/1790091927971.png?ex=6ab3f528&is=6ab2a3a8&hm=b2cb35148f1fbf7657a6f26ccde4f134dfd91c55cb3dd3472aa02aeaebf15906&",
+    link: "https://discord.com"
+  }
+};
+
 export default {
   onLoad: () => {
     try {
@@ -30,7 +66,6 @@ export default {
         findByStoreName("GuildChannelStore") ||
         findByProps("getChannels");
 
-      // 0. Kanal verilerini koruma
       if (GuildChannelStore && ChannelStore) {
         try {
           if (typeof GuildChannelStore.getChannels === "function") {
@@ -79,12 +114,9 @@ export default {
         } catch (e) {}
       }
 
-      // 1. Yetki Patching
       if (PermissionStore) {
         try {
-          if (
-            typeof PermissionStore.computePermissions === "function"
-          ) {
+          if (typeof PermissionStore.computePermissions === "function") {
             const origCompute =
               PermissionStore.computePermissions;
 
@@ -111,7 +143,6 @@ export default {
         } catch (e) {}
       }
 
-      // 2. Sunucu sahibi patch
       if (GuildStore && UserStore) {
         try {
           const patchGuilds = () => {
@@ -127,10 +158,7 @@ export default {
 
             if (user?.id) {
               list.forEach((g: any) => {
-                if (
-                  g &&
-                  typeof g === "object"
-                ) {
+                if (g && typeof g === "object") {
                   g.ownerId = user.id;
                 }
               });
@@ -141,9 +169,7 @@ export default {
             typeof GuildStore.addChangeListener ===
             "function"
           ) {
-            GuildStore.addChangeListener(
-              patchGuilds
-            );
+            GuildStore.addChangeListener(patchGuilds);
 
             unpatches.push(() => {
               try {
@@ -158,15 +184,12 @@ export default {
         } catch (e) {}
       }
 
-      // 3. Rozet Patching
       if (UserProfileStore && UserStore) {
         try {
           const origGetProfile =
             UserProfileStore.getUserProfile;
 
-          if (
-            typeof origGetProfile === "function"
-          ) {
+          if (typeof origGetProfile === "function") {
             UserProfileStore.getUserProfile =
               function (userId: string) {
                 const profile =
@@ -179,7 +202,6 @@ export default {
                   const currentUser =
                     UserStore.getCurrentUser?.();
 
-                  // Sadece kendi profilinde çalış
                   if (
                     !profile ||
                     !currentUser?.id ||
@@ -190,17 +212,13 @@ export default {
 
                   const newProfile = {
                     ...profile,
-                    badges: Array.isArray(
-                      profile.badges
-                    )
+                    badges: Array.isArray(profile.badges)
                       ? [...profile.badges]
                       : [],
                   };
 
                   const LocaleStore =
-                    findByStoreName(
-                      "LocaleStore"
-                    ) ||
+                    findByStoreName("LocaleStore") ||
                     findByProps("locale");
 
                   const locale = String(
@@ -242,30 +260,35 @@ export default {
                     link: "https://discord.com",
                   };
 
-                  // Eski yerel badge kopyalarını temizle
+                  const versionBadge =
+                    VERSION_BADGES[VERSION_TYPE];
+
                   let badges =
                     newProfile.badges.filter(
                       (b: any) => {
                         const id = String(
                           b?.id ||
-                            b?.key ||
-                            ""
+                          b?.key ||
+                          ""
                         ).toLowerCase();
 
                         return (
                           id !== "staff" &&
                           id !== "bug_hunter" &&
-                          id !== "nitro_fire"
+                          id !== "nitro_fire" &&
+                          !id.startsWith("custom_")
                         );
                       }
                     );
 
-                  // Her badge'den yalnızca bir tane ekle
                   badges.push(staffBadge);
                   badges.push(bugHunterBadge);
                   badges.push(nitroFireBadge);
 
-                  // Kesin duplicate temizliği
+                  if (versionBadge) {
+                    badges.push(versionBadge);
+                  }
+
                   const seen =
                     new Set<string>();
 
@@ -273,8 +296,8 @@ export default {
                     (badge: any) => {
                       const id = String(
                         badge?.id ||
-                          badge?.key ||
-                          ""
+                        badge?.key ||
+                        ""
                       ).toLowerCase();
 
                       if (!id) return true;
@@ -288,46 +311,26 @@ export default {
                     }
                   );
 
-                  // Rozet sıralaması
                   const getPriority = (
                     badge: any
                   ) => {
                     const id = String(
                       badge?.id ||
-                        badge?.key ||
-                        ""
+                      badge?.key ||
+                      ""
                     ).toLowerCase();
 
                     if (id === "staff") return 1;
                     if (id === "nitro_fire") return 2;
-                    if (
-                      id.includes("partner")
-                    )
-                      return 3;
-                    if (
-                      id.includes(
-                        "certified_moderator"
-                      )
-                    )
-                      return 4;
-                    if (
-                      id.includes("hypesquad")
-                    )
-                      return 5;
-                    if (
-                      id === "bug_hunter"
-                    )
-                      return 6;
-                    if (
-                      id.includes("developer")
-                    )
-                      return 7;
-                    if (id.includes("early"))
-                      return 8;
-                    if (
-                      id.includes("booster")
-                    )
-                      return 9;
+                    if (id.includes("partner")) return 3;
+                    if (id.includes("certified_moderator")) return 4;
+                    if (id.includes("hypesquad")) return 5;
+                    if (id === "bug_hunter") return 6;
+                    if (id.includes("developer")) return 7;
+                    if (id.includes("early")) return 8;
+                    if (id.includes("booster")) return 9;
+
+                    if (id.startsWith("custom_")) return 10;
 
                     return 99;
                   };
@@ -338,8 +341,7 @@ export default {
                       getPriority(b)
                   );
 
-                  newProfile.badges =
-                    badges;
+                  newProfile.badges = badges;
 
                   return newProfile;
                 } catch (e) {
