@@ -1,0 +1,14 @@
+{
+    "name": "Version Badges",
+    "description": "Get the Beta, Alpha, Experiment, or Staff badge depending on the version.",
+    "authors": [
+        {
+            "name": "URRally",
+            "id": "758758036562509855"
+        }
+    ],
+    "main": "src/index.ts",
+    "vendetta": {
+        "icon": "ic_badge_staff"
+    }
+}
