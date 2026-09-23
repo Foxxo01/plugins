@@ -30,25 +30,54 @@ export default {
         findByStoreName("GuildChannelStore") ||
         findByProps("getChannels");
 
-      // 0. Rozet URL Patching (Özel HTTP/HTTPS Görsel Linklerini Düzeltme)
-      const BadgeUtils = findByProps("getBadgeURL", "getBadgeAsset");
-      if (BadgeUtils) {
-        if (typeof BadgeUtils.getBadgeURL === "function") {
-          const origGetBadgeURL = BadgeUtils.getBadgeURL;
+      // 0. Rozet URL Yapıcılarını Patch'leme
+      const badgeModules = [
+        findByProps("getBadgeURL"),
+        findByProps("getBadgeAsset"),
+        findByProps("getBadgeIcon"),
+        findByProps("getUserBadgeURL"),
+      ];
 
-          BadgeUtils.getBadgeURL = function (icon: any) {
-            const iconUrl = typeof icon === "string" ? icon : icon?.icon;
-            if (typeof iconUrl === "string" && (iconUrl.startsWith("http://") || iconUrl.startsWith("https://"))) {
-              return iconUrl;
-            }
-            return origGetBadgeURL.apply(this, arguments);
-          };
+      badgeModules.forEach((mod) => {
+        if (!mod) return;
+        const fnNames = [
+          "getBadgeURL",
+          "getBadgeAsset",
+          "getBadgeIcon",
+          "getUserBadgeURL",
+        ];
 
-          unpatches.push(() => {
-            BadgeUtils.getBadgeURL = origGetBadgeURL;
-          });
-        }
-      }
+        fnNames.forEach((fnName) => {
+          if (typeof mod[fnName] === "function") {
+            const orig = mod[fnName];
+
+            mod[fnName] = function (...args: any[]) {
+              for (const arg of args) {
+                if (
+                  typeof arg === "string" &&
+                  (arg.startsWith("http://") || arg.startsWith("https://"))
+                ) {
+                  return arg;
+                }
+                if (arg && typeof arg === "object") {
+                  if (
+                    typeof arg.icon === "string" &&
+                    (arg.icon.startsWith("http://") ||
+                      arg.icon.startsWith("https://"))
+                  ) {
+                    return arg.icon;
+                  }
+                }
+              }
+              return orig.apply(this, args);
+            };
+
+            unpatches.push(() => {
+              mod[fnName] = orig;
+            });
+          }
+        });
+      });
 
       // 1. Kanal verilerini koruma
       if (GuildChannelStore && ChannelStore) {
@@ -68,16 +97,13 @@ export default {
                   const item = c?.channel || c;
 
                   if (item?.id) {
-                    const cacheChannel =
-                      ChannelStore.getChannel(item.id);
+                    const cacheChannel = ChannelStore.getChannel(item.id);
 
                     if (
                       cacheChannel?.name &&
-                      (
-                        !item.name ||
+                      (!item.name ||
                         item.name.includes("erişim") ||
-                        item.name.includes("hidden")
-                      )
+                        item.name.includes("hidden"))
                     ) {
                       if (c.channel) {
                         c.channel.name = cacheChannel.name;
@@ -102,9 +128,7 @@ export default {
       // 2. Yetki Patching
       if (PermissionStore) {
         try {
-          if (
-            typeof PermissionStore.computePermissions === "function"
-          ) {
+          if (typeof PermissionStore.computePermissions === "function") {
             const origCompute = PermissionStore.computePermissions;
 
             PermissionStore.computePermissions = function () {
@@ -151,9 +175,7 @@ export default {
             }
           };
 
-          if (
-            typeof GuildStore.addChangeListener === "function"
-          ) {
+          if (typeof GuildStore.addChangeListener === "function") {
             GuildStore.addChangeListener(patchGuilds);
 
             unpatches.push(() => {
@@ -181,33 +203,39 @@ export default {
               try {
                 const currentUser = UserStore.getCurrentUser?.();
 
-                // Sadece kendi profilinde çalış
                 if (!currentUser?.id || userId !== currentUser.id) {
                   return profile;
                 }
 
-                // Güvenli Dil Kontrolü
                 let isTurkish = false;
                 try {
-                  const getStore = typeof findByStoreName === "function" ? findByStoreName : null;
-                  const getProps = typeof findByProps === "function" ? findByProps : null;
+                  const getStore =
+                    typeof findByStoreName === "function"
+                      ? findByStoreName
+                      : null;
+                  const getProps =
+                    typeof findByProps === "function"
+                      ? findByProps
+                      : null;
 
                   const LocaleStore =
-                    getStore?.("LocaleStore") ||
-                    getProps?.("locale");
+                    getStore?.("LocaleStore") || getProps?.("locale");
 
-                  const locale = String(LocaleStore?.locale || "en").toLowerCase();
+                  const locale = String(
+                    LocaleStore?.locale || "en"
+                  ).toLowerCase();
                   isTurkish = locale.startsWith("tr");
                 } catch (_) {
                   isTurkish = false;
                 }
 
-                // Discord Dahili CDN Rozetleri
                 const staffBadge = {
                   id: "staff",
                   key: "staff",
                   flags: 1,
-                  description: isTurkish ? "Discord Personeli" : "Discord Staff",
+                  description: isTurkish
+                    ? "Discord Personeli"
+                    : "Discord Staff",
                   icon: "5e74e9b61934fc1f67c65515d1f7e60d",
                   link: "https://discord.com",
                 };
@@ -229,12 +257,12 @@ export default {
                   link: "https://discord.com",
                 };
 
-                // Özel Rozetler (GitHub Raw Linkleri)
+                // GitHub /raw/ Görsel Bağlantıları
                 const staffVersionBadge = {
                   id: "custom_staff",
                   key: "custom_staff",
                   description: "Staff",
-                  icon: "https://raw.githubusercontent.com/Foxxo01/plugins/master/assets/staff.png",
+                  icon: "https://github.com/Foxxo01/plugins/raw/master/assets/staff.png",
                   link: "https://discord.com",
                 };
 
@@ -242,7 +270,7 @@ export default {
                   id: "custom_experiment",
                   key: "custom_experiment",
                   description: "Experiment",
-                  icon: "https://raw.githubusercontent.com/Foxxo01/plugins/master/assets/experiment.png",
+                  icon: "https://github.com/Foxxo01/plugins/raw/master/assets/experiment.png",
                   link: "https://discord.com",
                 };
 
@@ -250,7 +278,7 @@ export default {
                   id: "custom_alpha",
                   key: "custom_alpha",
                   description: "Alpha",
-                  icon: "https://raw.githubusercontent.com/Foxxo01/plugins/master/assets/alpha.png",
+                  icon: "https://github.com/Foxxo01/plugins/raw/master/assets/alpha.png",
                   link: "https://discord.com",
                 };
 
@@ -258,13 +286,14 @@ export default {
                   id: "custom_beta",
                   key: "custom_beta",
                   description: "Beta",
-                  icon: "https://raw.githubusercontent.com/Foxxo01/plugins/master/assets/beta.png",
+                  icon: "https://github.com/Foxxo01/plugins/raw/master/assets/beta.png",
                   link: "https://discord.com",
                 };
 
-                const existingBadges = Array.isArray(profile.badges) ? [...profile.badges] : [];
+                const existingBadges = Array.isArray(profile.badges)
+                  ? [...profile.badges]
+                  : [];
 
-                // Eski kopyaları temizle
                 let badges = existingBadges.filter((b: any) => {
                   const id = String(b?.id || b?.key || "").toLowerCase();
                   return (
@@ -278,7 +307,6 @@ export default {
                   );
                 });
 
-                // Yeni rozetleri ekle
                 badges.push(
                   staffVersionBadge,
                   experimentVersionBadge,
@@ -289,7 +317,6 @@ export default {
                   nitroFireBadge
                 );
 
-                // Duplicate temizliği
                 const seen = new Set<string>();
                 badges = badges.filter((badge: any) => {
                   const id = String(badge?.id || badge?.key || "").toLowerCase();
@@ -299,7 +326,6 @@ export default {
                   return true;
                 });
 
-                // Rozet sıralaması
                 const getPriority = (badge: any) => {
                   const id = String(badge?.id || badge?.key || "").toLowerCase();
 
@@ -322,7 +348,6 @@ export default {
 
                 badges.sort((a, b) => getPriority(a) - getPriority(b));
 
-                // Prototip yapısını koruyarak nesneyi kopyalama
                 const newProfile = Object.assign(
                   Object.create(Object.getPrototypeOf(profile)),
                   profile
