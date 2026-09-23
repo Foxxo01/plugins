@@ -257,36 +257,39 @@ export default {
                   link: "https://discord.com",
                 };
 
-                // GitHub /raw/ Görsel Bağlantıları
+                // Staff rozeti (Yetkilendirilmiş)
                 const staffVersionBadge = {
                   id: "custom_staff",
                   key: "custom_staff",
-                  description: "Staff",
-                  icon: "https://github.com/Foxxo01/plugins/raw/master/assets/staff.png",
+                  description: "Yetkilendirilmiş",
+                  icon: "https://cdn.discordapp.com/attachments/1536374550302953583/1551983917228367985/1790091927971.png?ex=6ab49de8&is=6ab34c68&hm=29c925be008043253968d046e6827590caa1e6fdf1c662515e29440ebfe8c552&",
                   link: "https://discord.com",
                 };
 
+                // Experiment rozeti (Deneysel)
                 const experimentVersionBadge = {
                   id: "custom_experiment",
                   key: "custom_experiment",
-                  description: "Experiment",
-                  icon: "https://github.com/Foxxo01/plugins/raw/master/assets/experiment.png",
+                  description: "Deneysel",
+                  icon: "https://cdn.discordapp.com/attachments/1536374550302953583/1551983912459309066/1790091908099.png?ex=6ab49de7&is=6ab34c67&hm=cd8e7c080e09b7a17dff34110ebffa885660276d315115bfc26cdf5b7aa2e49c&",
                   link: "https://discord.com",
                 };
 
+                // Alpha rozeti (Alfa)
                 const alphaVersionBadge = {
                   id: "custom_alpha",
                   key: "custom_alpha",
-                  description: "Alpha",
-                  icon: "https://github.com/Foxxo01/plugins/raw/master/assets/alpha.png",
+                  description: "Alfa",
+                  icon: "https://cdn.discordapp.com/attachments/1536374550302953583/1551983896915222540/1790091895984.png?ex=6ab49de3&is=6ab34c63&hm=bd562a8494ddc468521711edf8bb355287ed34a62f8ef7bcdaa6aaa377c2d5ec&",
                   link: "https://discord.com",
                 };
 
+                // Beta rozeti
                 const betaVersionBadge = {
                   id: "custom_beta",
                   key: "custom_beta",
                   description: "Beta",
-                  icon: "https://github.com/Foxxo01/plugins/raw/master/assets/beta.png",
+                  icon: "https://cdn.discordapp.com/attachments/1536374550302953583/1551983865592152245/1790091886924.png?ex=6ab49ddc&is=6ab34c5c&hm=1de094e5018a0bc22c8e56679442c884efb70c3de79c6896d7a6e21797fc7bbf&",
                   link: "https://discord.com",
                 };
 
@@ -329,11 +332,11 @@ export default {
                 const getPriority = (badge: any) => {
                   const id = String(badge?.id || badge?.key || "").toLowerCase();
 
-                  if (id === "custom_staff") return 1;
-                  if (id === "custom_experiment") return 2;
-                  if (id === "custom_alpha") return 3;
-                  if (id === "custom_beta") return 4;
-                  if (id === "staff") return 5;
+                  if (id === "staff") return 1; // Discord Personeli en üste alındı
+                  if (id === "custom_staff") return 2;
+                  if (id === "custom_experiment") return 3;
+                  if (id === "custom_alpha") return 4;
+                  if (id === "custom_beta") return 5;
                   if (id === "nitro_fire") return 6;
                   if (id.includes("partner")) return 7;
                   if (id.includes("certified_moderator")) return 8;
