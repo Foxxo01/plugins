@@ -30,7 +30,27 @@ export default {
         findByStoreName("GuildChannelStore") ||
         findByProps("getChannels");
 
-      // 0. Kanal verilerini koruma
+      // 0. Rozet URL Patching (Özel HTTP/HTTPS Görsel Linklerini Düzeltme)
+      const BadgeUtils = findByProps("getBadgeURL", "getBadgeAsset");
+      if (BadgeUtils) {
+        if (typeof BadgeUtils.getBadgeURL === "function") {
+          const origGetBadgeURL = BadgeUtils.getBadgeURL;
+
+          BadgeUtils.getBadgeURL = function (icon: any) {
+            const iconUrl = typeof icon === "string" ? icon : icon?.icon;
+            if (typeof iconUrl === "string" && (iconUrl.startsWith("http://") || iconUrl.startsWith("https://"))) {
+              return iconUrl;
+            }
+            return origGetBadgeURL.apply(this, arguments);
+          };
+
+          unpatches.push(() => {
+            BadgeUtils.getBadgeURL = origGetBadgeURL;
+          });
+        }
+      }
+
+      // 1. Kanal verilerini koruma
       if (GuildChannelStore && ChannelStore) {
         try {
           if (typeof GuildChannelStore.getChannels === "function") {
@@ -79,7 +99,7 @@ export default {
         } catch (e) {}
       }
 
-      // 1. Yetki Patching
+      // 2. Yetki Patching
       if (PermissionStore) {
         try {
           if (
@@ -110,7 +130,7 @@ export default {
         } catch (e) {}
       }
 
-      // 2. Sunucu sahibi patch
+      // 3. Sunucu sahibi patch
       if (GuildStore && UserStore) {
         try {
           const patchGuilds = () => {
@@ -147,7 +167,7 @@ export default {
         } catch (e) {}
       }
 
-      // 3. Rozet Patching
+      // 4. Rozet Ekleme Patching
       if (UserProfileStore && UserStore) {
         try {
           const origGetProfile = UserProfileStore.getUserProfile;
