@@ -30,49 +30,53 @@ export default {
         findByStoreName("GuildChannelStore") ||
         findByProps("getChannels");
 
-      // 0. Rozet Görsel Çözücülerini (Asset / URL) Mobille Uyumlu Patch'leme
-      const badgeAssetMod = findByProps("getBadgeAsset");
-      if (badgeAssetMod && typeof badgeAssetMod.getBadgeAsset === "function") {
-        const orig = badgeAssetMod.getBadgeAsset;
-        badgeAssetMod.getBadgeAsset = function (icon: any) {
-          const target = typeof icon === "string" ? icon : icon?.icon || icon?.key;
-          if (
-            typeof target === "string" &&
-            (target.startsWith("http://") || target.startsWith("https://"))
-          ) {
-            return { uri: target }; // React Native Image bileşeni için
-          }
-          return orig.apply(this, arguments);
-        };
-        unpatches.push(() => {
-          badgeAssetMod.getBadgeAsset = orig;
-        });
-      }
+      // 0. Rozet Görsel Modüllerini BAĞIMSIZ Olarak Patch'leme
+      const patchBadgeModule = (modName: string) => {
+        const mod = findByProps(modName);
+        if (!mod || typeof mod[modName] !== "function") return;
 
-      const badgeUrlMod = findByProps("getBadgeURL", "getUserBadgeURL");
-      if (badgeUrlMod) {
-        ["getBadgeURL", "getUserBadgeURL", "getBadgeIcon"].forEach((fnName) => {
-          if (typeof badgeUrlMod[fnName] === "function") {
-            const orig = badgeUrlMod[fnName];
-            badgeUrlMod[fnName] = function (badge: any) {
-              const target =
-                typeof badge === "string"
-                  ? badge
-                  : badge?.icon || badge?.key || badge?.id;
-              if (
-                typeof target === "string" &&
-                (target.startsWith("http://") || target.startsWith("https://"))
-              ) {
-                return target; // Doğrudan string URL dönmeli
-              }
-              return orig.apply(this, arguments);
-            };
-            unpatches.push(() => {
-              badgeUrlMod[fnName] = orig;
-            });
+        const orig = mod[modName];
+        mod[modName] = function (...args: any[]) {
+          const arg = args[0];
+          if (!arg) return orig.apply(this, args);
+
+          // 1. Argüman direkt URL string'i ise
+          if (
+            typeof arg === "string" &&
+            (arg.startsWith("http://") || arg.startsWith("https://"))
+          ) {
+            if (modName === "getBadgeAsset") {
+              return { uri: arg, width: 24, height: 24 };
+            }
+            return arg;
           }
+
+          // 2. Argüman badge nesnesi ise
+          if (typeof arg === "object" && arg !== null) {
+            const targetUrl = arg.icon || arg.key;
+            if (
+              typeof targetUrl === "string" &&
+              (targetUrl.startsWith("http://") || targetUrl.startsWith("https://"))
+            ) {
+              if (modName === "getBadgeAsset") {
+                return { uri: targetUrl, width: 24, height: 24 };
+              }
+              return targetUrl;
+            }
+          }
+
+          return orig.apply(this, args);
+        };
+
+        unpatches.push(() => {
+          mod[modName] = orig;
         });
-      }
+      };
+
+      // Discord'un rozet resimlerini çekmek için kullandığı tüm olası fonksiyonları ayrı ayrı yamala
+      ["getBadgeAsset", "getUserBadgeURL", "getBadgeURL", "getBadgeIcon"].forEach(
+        (fnName) => patchBadgeModule(fnName)
+      );
 
       // 1. Kanal verilerini koruma
       if (GuildChannelStore && ChannelStore) {
@@ -348,7 +352,6 @@ export default {
 
                 badges.sort((a, b) => getPriority(a) - getPriority(b));
 
-                // Profil üzerindeki read-only getter engelini Object.defineProperty ile aşıyoruz
                 Object.defineProperty(profile, "badges", {
                   value: badges,
                   writable: true,
