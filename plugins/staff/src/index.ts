@@ -2,6 +2,16 @@ import { findByProps, findByStoreName } from "@vendetta/metro";
 
 const unpatches: Array<() => void> = [];
 
+// ============================================================================
+// 1. İKON HARİTASI (Doğrudan bağlantılar entegre edildi)
+// ============================================================================
+const CUSTOM_BADGE_MAP: Record<string, string> = {
+  custom_staff_icon: "https://i.postimg.cc/JhZj3Pg2/1790091927971.png",
+  custom_experiment_icon: "https://i.postimg.cc/P5LWJtQK/1790091908099.png",
+  custom_alpha_icon: "https://i.postimg.cc/cCs7LwFX/1790091895984.png",
+  custom_beta_icon: "https://i.postimg.cc/G2vz2cdc/1790091886924.png",
+};
+
 export default {
   onLoad: () => {
     try {
@@ -53,18 +63,25 @@ export default {
 
             mod[fnName] = function (...args: any[]) {
               for (const arg of args) {
-                const targetUrl = typeof arg === "string" ? arg : arg?.icon;
+                const iconKey = typeof arg === "string" ? arg : arg?.icon;
 
+                // Haritadaki özel ikon anahtarı kontrol edilir
+                if (iconKey && CUSTOM_BADGE_MAP[iconKey]) {
+                  const targetUrl = CUSTOM_BADGE_MAP[iconKey];
+                  return fnName === "getBadgeAsset"
+                    ? { uri: targetUrl }
+                    : targetUrl;
+                }
+
+                // Doğrudan HTTP/HTTPS URL verilmişse
                 if (
-                  typeof targetUrl === "string" &&
-                  (targetUrl.startsWith("http://") ||
-                    targetUrl.startsWith("https://"))
+                  typeof iconKey === "string" &&
+                  (iconKey.startsWith("http://") ||
+                    iconKey.startsWith("https://"))
                 ) {
-                  // React Native Image bileşeni için { uri } objesi, web/metin için düz URL döndürülür
-                  if (fnName === "getBadgeAsset") {
-                    return { uri: targetUrl };
-                  }
-                  return targetUrl;
+                  return fnName === "getBadgeAsset"
+                    ? { uri: iconKey }
+                    : iconKey;
                 }
               }
               return orig.apply(this, args);
@@ -227,7 +244,7 @@ export default {
                   isTurkish = false;
                 }
 
-                // Orijinal Discord Dahili Rozetleri (İç asset hash değerleri kullanılır)
+                // Orijinal Discord Dahili Rozetleri
                 const staffBadge = {
                   id: "staff",
                   key: "staff",
@@ -256,12 +273,12 @@ export default {
                   link: "https://discord.com",
                 };
 
-                // Özel URL Rozetleri (Özel patch mekanizması ile işlenir)
+                // Özel Rozetler
                 const staffVersionBadge = {
                   id: "custom_staff",
                   key: "custom_staff",
                   description: "Yetkilendirilmiş",
-                  icon: "https://cdn.discordapp.com/attachments/1536374550302953583/1551983917228367985/1790091927971.png?ex=6ab49de8&is=6ab34c68&hm=29c925be008043253968d046e6827590caa1e6fdf1c662515e29440ebfe8c552&",
+                  icon: "custom_staff_icon",
                   link: "https://discord.com",
                 };
 
@@ -269,7 +286,7 @@ export default {
                   id: "custom_experiment",
                   key: "custom_experiment",
                   description: "Deneysel",
-                  icon: "https://cdn.discordapp.com/attachments/1536374550302953583/1551983912459309066/1790091908099.png?ex=6ab49de7&is=6ab34c67&hm=cd8e7c080e09b7a17dff34110ebffa885660276d315115bfc26cdf5b7aa2e49c&",
+                  icon: "custom_experiment_icon",
                   link: "https://discord.com",
                 };
 
@@ -277,7 +294,7 @@ export default {
                   id: "custom_alpha",
                   key: "custom_alpha",
                   description: "Alfa",
-                  icon: "https://cdn.discordapp.com/attachments/1536374550302953583/1551983896915222540/1790091895984.png?ex=6ab49de3&is=6ab34c63&hm=bd562a8494ddc468521711edf8bb355287ed34a62f8ef7bcdaa6aaa377c2d5ec&",
+                  icon: "custom_alpha_icon",
                   link: "https://discord.com",
                 };
 
@@ -285,7 +302,7 @@ export default {
                   id: "custom_beta",
                   key: "custom_beta",
                   description: "Beta",
-                  icon: "https://cdn.discordapp.com/attachments/1536374550302953583/1551983865592152245/1790091886924.png?ex=6ab49ddc&is=6ab34c5c&hm=1de094e5018a0bc22c8e56679442c884efb70c3de79c6896d7a6e21797fc7bbf&",
+                  icon: "custom_beta_icon",
                   link: "https://discord.com",
                 };
 
