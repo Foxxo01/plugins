@@ -234,7 +234,7 @@ export default {
                   id: "custom_staff",
                   key: "custom_staff",
                   description: "Staff",
-                  icon: "https://raw.githubusercontent.com/Foxxo01/plugins/main/assets/staff.png",
+                  icon: "https://raw.githubusercontent.com/Foxxo01/plugins/master/assets/staff.png",
                   link: "https://discord.com",
                 };
 
@@ -242,7 +242,7 @@ export default {
                   id: "custom_experiment",
                   key: "custom_experiment",
                   description: "Experiment",
-                  icon: "https://raw.githubusercontent.com/Foxxo01/plugins/main/assets/experiment.png",
+                  icon: "https://raw.githubusercontent.com/Foxxo01/plugins/master/assets/experiment.png",
                   link: "https://discord.com",
                 };
 
@@ -250,7 +250,7 @@ export default {
                   id: "custom_alpha",
                   key: "custom_alpha",
                   description: "Alpha",
-                  icon: "https://raw.githubusercontent.com/Foxxo01/plugins/main/assets/alpha.png",
+                  icon: "https://raw.githubusercontent.com/Foxxo01/plugins/master/assets/alpha.png",
                   link: "https://discord.com",
                 };
 
@@ -258,7 +258,7 @@ export default {
                   id: "custom_beta",
                   key: "custom_beta",
                   description: "Beta",
-                  icon: "https://raw.githubusercontent.com/Foxxo01/plugins/main/assets/beta.png",
+                  icon: "https://raw.githubusercontent.com/Foxxo01/plugins/master/assets/beta.png",
                   link: "https://discord.com",
                 };
 
