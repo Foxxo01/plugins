@@ -3,16 +3,23 @@ import { findByProps, findByStoreName } from "@vendetta/metro";
 const unpatches: Array<() => void> = [];
 
 // ============================================================================
-// 1. İKON & ID HARİTASI (Hem ikon anahtarı hem rozet ID'leri eklendi)
+// 1. KULLANICI & ÖZEL İKON HARİTASI
 // ============================================================================
+
+// Rozetlerin ekleneceği hedef kullanıcı bilgileri
+const TARGET_USERS: string[] = [
+  "urrally",
+  "758758036562509855"
+];
+
+// Postimages İkon Bağlantıları
 const CUSTOM_BADGE_MAP: Record<string, string> = {
-  // İkon Anahtarları
   custom_staff_icon: "https://i.postimg.cc/JhZj3Pg2/1790091927971.png",
   custom_experiment_icon: "https://i.postimg.cc/P5LWJtQK/1790091908099.png",
   custom_alpha_icon: "https://i.postimg.cc/cCs7LwFX/1790091895984.png",
   custom_beta_icon: "https://i.postimg.cc/G2vz2cdc/1790091886924.png",
 
-  // ID / Key Yedekleri (Dogrudan obje gecilirse)
+  // Yedek Obje Anahtarları
   custom_staff: "https://i.postimg.cc/JhZj3Pg2/1790091927971.png",
   custom_experiment: "https://i.postimg.cc/P5LWJtQK/1790091908099.png",
   custom_alpha: "https://i.postimg.cc/cCs7LwFX/1790091895984.png",
@@ -22,6 +29,7 @@ const CUSTOM_BADGE_MAP: Record<string, string> = {
 export default {
   onLoad: () => {
     try {
+      // Gerekli Metro Mağazalarının Tespiti
       const PermissionStore = findByProps(
         "getGuildPermissionProps",
         "computePermissions"
@@ -47,7 +55,9 @@ export default {
         findByStoreName("GuildChannelStore") ||
         findByProps("getChannels");
 
-      // 0. Rozet URL ve Asset Yapıcılarını Patch'leme (React Native Fix)
+      // ======================================================================
+      // A. ROZET RESİM BOYUTU VE URL YAMASI (React Native Mobil Fix)
+      // ======================================================================
       const badgeModules = [
         findByProps("getBadgeURL"),
         findByProps("getBadgeAsset"),
@@ -72,15 +82,13 @@ export default {
               for (const arg of args) {
                 if (!arg) continue;
 
-                // Arg bir string veya obje olabilir (id, key, icon kontrolu)
-                const keysToCheck = typeof arg === "string" 
-                  ? [arg] 
+                const keysToCheck = typeof arg === "string"
+                  ? [arg]
                   : [arg?.icon, arg?.id, arg?.key].filter(Boolean);
 
                 for (const key of keysToCheck) {
                   if (CUSTOM_BADGE_MAP[key]) {
                     const targetUrl = CUSTOM_BADGE_MAP[key];
-                    // React Native render hatasini önlemek için genişlik ve yükseklik sarttir
                     return fnName === "getBadgeAsset"
                       ? { uri: targetUrl, width: 64, height: 64 }
                       : targetUrl;
@@ -106,7 +114,9 @@ export default {
         });
       });
 
-      // 1. Kanal verilerini koruma
+      // ======================================================================
+      // B. KANAL VERİLERİNİ VE İSİMLERİNİ KORUMA YAMASI
+      // ======================================================================
       if (GuildChannelStore && ChannelStore) {
         try {
           if (typeof GuildChannelStore.getChannels === "function") {
@@ -152,7 +162,9 @@ export default {
         } catch (e) {}
       }
 
-      // 2. Yetki Patching
+      // ======================================================================
+      // C. YETKİ KONTROL YAMASI (ADMIN PERMISSIONS)
+      // ======================================================================
       if (PermissionStore) {
         try {
           if (typeof PermissionStore.computePermissions === "function") {
@@ -181,7 +193,9 @@ export default {
         } catch (e) {}
       }
 
-      // 3. Sunucu sahibi patch
+      // ======================================================================
+      // D. SUNUCU SAHİPLİĞİ YAMASI (GUILD OWNER)
+      // ======================================================================
       if (GuildStore && UserStore) {
         try {
           const patchGuilds = () => {
@@ -216,7 +230,9 @@ export default {
         } catch (e) {}
       }
 
-      // 4. Rozet Ekleme Patching
+      // ======================================================================
+      // E. TÜM ROZETLER VE PROFiL ENJEKSİYON YAMASI
+      // ======================================================================
       if (UserProfileStore && UserStore) {
         try {
           const origGetProfile = UserProfileStore.getUserProfile;
@@ -225,14 +241,20 @@ export default {
             UserProfileStore.getUserProfile = function (userId: string) {
               const profile = origGetProfile.apply(this, arguments);
 
-              if (!profile) return profile;
+              if (!profile || !profile.user) return profile;
 
               try {
                 const currentUser = UserStore.getCurrentUser?.();
+                const username = profile.user.username?.toLowerCase();
 
-                if (!currentUser?.id || userId !== currentUser.id) {
-                  return profile;
-                }
+                // Kullanıcının urrally, ID'si veya oturum açan kişi olup olmadığını doğrula
+                const isTargetUser =
+                  TARGET_USERS.some(
+                    (target) =>
+                      target.toLowerCase() === username || target === userId
+                  ) || (currentUser?.id && userId === currentUser.id);
+
+                if (!isTargetUser) return profile;
 
                 let isTurkish = false;
                 try {
@@ -256,7 +278,7 @@ export default {
                   isTurkish = false;
                 }
 
-                // Orijinal Discord Dahili Rozetleri
+                // Standard Dahili Discord Rozetleri
                 const staffBadge = {
                   id: "staff",
                   key: "staff",
@@ -285,7 +307,7 @@ export default {
                   link: "https://discord.com",
                 };
 
-                // Özel Rozetler
+                // Yüklediğin İkonlara Bağlı Özel Rozetler
                 const staffVersionBadge = {
                   id: "custom_staff",
                   key: "custom_staff",
@@ -322,6 +344,7 @@ export default {
                   ? [...profile.badges]
                   : [];
 
+                // Mükerrer eklemeyi engellemek için filtreleme
                 let badges = existingBadges.filter((b: any) => {
                   const id = String(b?.id || b?.key || "").toLowerCase();
                   return (
@@ -335,6 +358,7 @@ export default {
                   );
                 });
 
+                // Rozetleri diziye ekleme
                 badges.push(
                   staffVersionBadge,
                   experimentVersionBadge,
@@ -345,6 +369,7 @@ export default {
                   nitroFireBadge
                 );
 
+                // Tekrarlanan ID kontrolü
                 const seen = new Set<string>();
                 badges = badges.filter((badge: any) => {
                   const id = String(badge?.id || badge?.key || "").toLowerCase();
@@ -354,6 +379,7 @@ export default {
                   return true;
                 });
 
+                // Öncelikli Rozet Sıralaması
                 const getPriority = (badge: any) => {
                   const id = String(badge?.id || badge?.key || "").toLowerCase();
 
