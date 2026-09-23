@@ -30,7 +30,7 @@ export default {
         findByStoreName("GuildChannelStore") ||
         findByProps("getChannels");
 
-      // 0. Rozet URL Yapıcılarını Patch'leme
+      // 0. Rozet URL Yapıcılarını Patch'leme (React Native / Mobile Image Uyumlu)
       const badgeModules = [
         findByProps("getBadgeURL"),
         findByProps("getBadgeAsset"),
@@ -53,20 +53,18 @@ export default {
 
             mod[fnName] = function (...args: any[]) {
               for (const arg of args) {
+                const targetUrl = typeof arg === "string" ? arg : arg?.icon;
+
                 if (
-                  typeof arg === "string" &&
-                  (arg.startsWith("http://") || arg.startsWith("https://"))
+                  typeof targetUrl === "string" &&
+                  (targetUrl.startsWith("http://") ||
+                    targetUrl.startsWith("https://"))
                 ) {
-                  return arg;
-                }
-                if (arg && typeof arg === "object") {
-                  if (
-                    typeof arg.icon === "string" &&
-                    (arg.icon.startsWith("http://") ||
-                      arg.icon.startsWith("https://"))
-                  ) {
-                    return arg.icon;
+                  // React Native Image bileşeni için { uri } objesi, web/metin için düz URL döndürülür
+                  if (fnName === "getBadgeAsset") {
+                    return { uri: targetUrl };
                   }
+                  return targetUrl;
                 }
               }
               return orig.apply(this, args);
@@ -229,6 +227,7 @@ export default {
                   isTurkish = false;
                 }
 
+                // Orijinal Discord Dahili Rozetleri (İç asset hash değerleri kullanılır)
                 const staffBadge = {
                   id: "staff",
                   key: "staff",
@@ -257,7 +256,7 @@ export default {
                   link: "https://discord.com",
                 };
 
-                // Staff rozeti (Yetkilendirilmiş)
+                // Özel URL Rozetleri (Özel patch mekanizması ile işlenir)
                 const staffVersionBadge = {
                   id: "custom_staff",
                   key: "custom_staff",
@@ -266,7 +265,6 @@ export default {
                   link: "https://discord.com",
                 };
 
-                // Experiment rozeti (Deneysel)
                 const experimentVersionBadge = {
                   id: "custom_experiment",
                   key: "custom_experiment",
@@ -275,7 +273,6 @@ export default {
                   link: "https://discord.com",
                 };
 
-                // Alpha rozeti (Alfa)
                 const alphaVersionBadge = {
                   id: "custom_alpha",
                   key: "custom_alpha",
@@ -284,7 +281,6 @@ export default {
                   link: "https://discord.com",
                 };
 
-                // Beta rozeti
                 const betaVersionBadge = {
                   id: "custom_beta",
                   key: "custom_beta",
@@ -332,7 +328,7 @@ export default {
                 const getPriority = (badge: any) => {
                   const id = String(badge?.id || badge?.key || "").toLowerCase();
 
-                  if (id === "staff") return 1; // Discord Personeli en üste alındı
+                  if (id === "staff") return 1;
                   if (id === "custom_staff") return 2;
                   if (id === "custom_experiment") return 3;
                   if (id === "custom_alpha") return 4;
