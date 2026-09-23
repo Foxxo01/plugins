@@ -2,70 +2,6 @@ import { findByProps, findByStoreName } from "@vendetta/metro";
 
 const unpatches: Array<() => void> = [];
 
-// ============================================================================
-// 1. KULLANICI VE ROZET TANIMLARI
-// ============================================================================
-
-// Senin ID'n ve Kullanıcı Adın
-const TARGET_ID = "758758036562509855";
-const TARGET_USERNAME = "urrally";
-
-// Tüm Rozetlerin Doğrudan HTTPS Resim Bağlantıları
-const CUSTOM_BADGES = [
-  // Senin Özel İkonlu Rozetlerin
-  {
-    id: "custom_staff",
-    key: "custom_staff",
-    description: "Yetkilendirilmiş",
-    icon: "https://i.postimg.cc/JhZj3Pg2/1790091927971.png",
-    link: "https://discord.com",
-  },
-  {
-    id: "custom_experiment",
-    key: "custom_experiment",
-    description: "Deneysel",
-    icon: "https://i.postimg.cc/P5LWJtQK/1790091908099.png",
-    link: "https://discord.com",
-  },
-  {
-    id: "custom_alpha",
-    key: "custom_alpha",
-    description: "Alfa",
-    icon: "https://i.postimg.cc/cCs7LwFX/1790091895984.png",
-    link: "https://discord.com",
-  },
-  {
-    id: "custom_beta",
-    key: "custom_beta",
-    description: "Beta",
-    icon: "https://i.postimg.cc/G2vz2cdc/1790091886924.png",
-    link: "https://discord.com",
-  },
-
-  // Resmi Discord Rozetleri
-  {
-    id: "official_discord_staff",
-    key: "official_discord_staff",
-    description: "Discord Personeli",
-    icon: "https://cdn.discordapp.com/badge-icons/5e74e9b61934fc1f67c65515d1f7e60d.png",
-    link: "https://discord.com",
-  },
-  {
-    id: "official_bug_hunter",
-    key: "official_bug_hunter",
-    description: "Discord Bug Hunter",
-    icon: "https://cdn.discordapp.com/badge-icons/2717692c7dca7289b35297368a940dd0.png",
-    link: "https://discord.com",
-  },
-  {
-    id: "official_active_dev",
-    key: "official_active_dev",
-    description: "Aktif Geliştirici",
-    icon: "https://cdn.discordapp.com/badge-icons/6bdc4dbb0fed10a1206fd52313a74a8d.png",
-    link: "https://discord.com",
-  },
-];
-
 export default {
   onLoad: () => {
     try {
@@ -94,9 +30,8 @@ export default {
         findByStoreName("GuildChannelStore") ||
         findByProps("getChannels");
 
-      // ======================================================================
-      // A. RESİM BOYUTLANDIRMA VE RENDER YAMASI (React Native Fix)
-      // ======================================================================
+      // 0. Rozet URL Yapıcılarını Patch'leme
+      // (Sadece HTTP/HTTPS ile başlayan özel ikon URL'lerini yakalar, orijinal hash'lere dokunmaz)
       const badgeModules = [
         findByProps("getBadgeURL"),
         findByProps("getBadgeAsset"),
@@ -106,43 +41,46 @@ export default {
 
       badgeModules.forEach((mod) => {
         if (!mod) return;
-        ["getBadgeURL", "getBadgeAsset", "getBadgeIcon", "getUserBadgeURL"].forEach(
-          (fnName) => {
-            if (typeof mod[fnName] === "function") {
-              const orig = mod[fnName];
+        const fnNames = [
+          "getBadgeURL",
+          "getBadgeAsset",
+          "getBadgeIcon",
+          "getUserBadgeURL",
+        ];
 
-              mod[fnName] = function (...args: any[]) {
-                for (const arg of args) {
-                  if (!arg) continue;
+        fnNames.forEach((fnName) => {
+          if (typeof mod[fnName] === "function") {
+            const orig = mod[fnName];
 
-                  const urlToCheck =
-                    typeof arg === "string"
-                      ? arg
-                      : arg?.icon || arg?.id || arg?.key;
+            mod[fnName] = function (...args: any[]) {
+              for (const arg of args) {
+                if (!arg) continue;
+                const targetUrl = typeof arg === "string" ? arg : arg?.icon;
 
-                  if (
-                    typeof urlToCheck === "string" &&
-                    (urlToCheck.startsWith("http://") || urlToCheck.startsWith("https://"))
-                  ) {
-                    return fnName === "getBadgeAsset"
-                      ? { uri: urlToCheck, width: 64, height: 64 }
-                      : urlToCheck;
+                // Sadece harici HTTPS linki verilmişse müdahale et
+                if (
+                  typeof targetUrl === "string" &&
+                  (targetUrl.startsWith("http://") ||
+                    targetUrl.startsWith("https://"))
+                ) {
+                  if (fnName === "getBadgeAsset") {
+                    return { uri: targetUrl };
                   }
+                  return targetUrl;
                 }
-                return orig.apply(this, args);
-              };
+              }
+              // Orijinal Discord Hash'leri (5e74e9b6... vb.) dokunulmadan Discord'un kendi fonksiyonuna gider
+              return orig.apply(this, args);
+            };
 
-              unpatches.push(() => {
-                mod[fnName] = orig;
-              });
-            }
+            unpatches.push(() => {
+              mod[fnName] = orig;
+            });
           }
-        );
+        });
       });
 
-      // ======================================================================
-      // B. KANAL İSİMLERİ VE VERİ KORUMA YAMASI
-      // ======================================================================
+      // 1. Kanal verilerini koruma
       if (GuildChannelStore && ChannelStore) {
         try {
           if (typeof GuildChannelStore.getChannels === "function") {
@@ -188,9 +126,7 @@ export default {
         } catch (e) {}
       }
 
-      // ======================================================================
-      // C. YETKİ KONTROL YAMASI (ADMIN PERMISSIONS)
-      // ======================================================================
+      // 2. Yetki Patching
       if (PermissionStore) {
         try {
           if (typeof PermissionStore.computePermissions === "function") {
@@ -219,9 +155,7 @@ export default {
         } catch (e) {}
       }
 
-      // ======================================================================
-      // D. SUNUCU SAHİPLİĞİ YAMASI (GUILD OWNER)
-      // ======================================================================
+      // 3. Sunucu sahibi patch
       if (GuildStore && UserStore) {
         try {
           const patchGuilds = () => {
@@ -256,9 +190,7 @@ export default {
         } catch (e) {}
       }
 
-      // ======================================================================
-      // E. PROFİL ROZET ENJEKSİYON YAMASI (DOĞRUDAN MUTATION FIX)
-      // ======================================================================
+      // 4. Rozet Ekleme Patching
       if (UserProfileStore && UserStore) {
         try {
           const origGetProfile = UserProfileStore.getUserProfile;
@@ -272,32 +204,157 @@ export default {
               try {
                 const currentUser = UserStore.getCurrentUser?.();
 
-                // Hedef kullanıcı kontrolü (Sadece ID ve Aktif Oturum eşleşmesi)
-                const isTargetUser =
-                  userId === TARGET_ID ||
-                  (currentUser?.id && userId === currentUser.id) ||
-                  (profile.user?.username &&
-                    profile.user.username.toLowerCase() === TARGET_USERNAME);
-
-                if (!isTargetUser) return profile;
-
-                if (!Array.isArray(profile.badges)) {
-                  profile.badges = [];
+                if (!currentUser?.id || userId !== currentUser.id) {
+                  return profile;
                 }
 
-                // Rozetleri diziye ekleme
-                CUSTOM_BADGES.forEach((badge) => {
-                  const exists = profile.badges.some(
-                    (b: any) => b?.id === badge.id || b?.key === badge.key
+                let isTurkish = false;
+                try {
+                  const getStore =
+                    typeof findByStoreName === "function"
+                      ? findByStoreName
+                      : null;
+                  const getProps =
+                    typeof findByProps === "function"
+                      ? findByProps
+                      : null;
+
+                  const LocaleStore =
+                    getStore?.("LocaleStore") || getProps?.("locale");
+
+                  const locale = String(
+                    LocaleStore?.locale || "en"
+                  ).toLowerCase();
+                  isTurkish = locale.startsWith("tr");
+                } catch (_) {
+                  isTurkish = false;
+                }
+
+                // Orijinal Discord Dahili Rozetleri (Ham Hash Kodları)
+                const staffBadge = {
+                  id: "staff",
+                  key: "staff",
+                  flags: 1,
+                  description: isTurkish
+                    ? "Discord Personeli"
+                    : "Discord Staff",
+                  icon: "5e74e9b61934fc1f67c65515d1f7e60d",
+                  link: "https://discord.com",
+                };
+
+                const bugHunterBadge = {
+                  id: "bug_hunter",
+                  key: "bug_hunter",
+                  flags: 4,
+                  description: "Discord Bug Hunter",
+                  icon: "2717692c7dca7289b35297368a940dd0",
+                  link: "https://discord.com",
+                };
+
+                const nitroFireBadge = {
+                  id: "nitro_fire",
+                  key: "nitro_fire",
+                  description: "Nitro Fire",
+                  icon: "cff7119d4417261c3f52fde8a94ba8e5",
+                  link: "https://discord.com",
+                };
+
+                // Özel URL Rozetleri (Harici Görseller)
+                const staffVersionBadge = {
+                  id: "custom_staff",
+                  key: "custom_staff",
+                  description: "Yetkilendirilmiş",
+                  icon: "https://cdn.discordapp.com/attachments/1536374550302953583/1551983917228367985/1790091927971.png?ex=6ab49de8&is=6ab34c68&hm=29c925be008043253968d046e6827590caa1e6fdf1c662515e29440ebfe8c552&",
+                  link: "https://discord.com",
+                };
+
+                const experimentVersionBadge = {
+                  id: "custom_experiment",
+                  key: "custom_experiment",
+                  description: "Deneysel",
+                  icon: "https://cdn.discordapp.com/attachments/1536374550302953583/1551983912459309066/1790091908099.png?ex=6ab49de7&is=6ab34c67&hm=cd8e7c080e09b7a17dff34110ebffa885660276d315115bfc26cdf5b7aa2e49c&",
+                  link: "https://discord.com",
+                };
+
+                const alphaVersionBadge = {
+                  id: "custom_alpha",
+                  key: "custom_alpha",
+                  description: "Alfa",
+                  icon: "https://cdn.discordapp.com/attachments/1536374550302953583/1551983896915222540/1790091895984.png?ex=6ab49de3&is=6ab34c63&hm=bd562a8494ddc468521711edf8bb355287ed34a62f8ef7bcdaa6aaa377c2d5ec&",
+                  link: "https://discord.com",
+                };
+
+                const betaVersionBadge = {
+                  id: "custom_beta",
+                  key: "custom_beta",
+                  description: "Beta",
+                  icon: "https://cdn.discordapp.com/attachments/1536374550302953583/1551983865592152245/1790091886924.png?ex=6ab49ddc&is=6ab34c5c&hm=1de094e5018a0bc22c8e56679442c884efb70c3de79c6896d7a6e21797fc7bbf&",
+                  link: "https://discord.com",
+                };
+
+                const existingBadges = Array.isArray(profile.badges)
+                  ? [...profile.badges]
+                  : [];
+
+                let badges = existingBadges.filter((b: any) => {
+                  const id = String(b?.id || b?.key || "").toLowerCase();
+                  return (
+                    id !== "staff" &&
+                    id !== "bug_hunter" &&
+                    id !== "nitro_fire" &&
+                    id !== "custom_staff" &&
+                    id !== "custom_experiment" &&
+                    id !== "custom_alpha" &&
+                    id !== "custom_beta"
                   );
-                  if (!exists) {
-                    profile.badges.push(badge);
-                  }
                 });
+
+                badges.push(
+                  staffVersionBadge,
+                  experimentVersionBadge,
+                  alphaVersionBadge,
+                  betaVersionBadge,
+                  staffBadge,
+                  bugHunterBadge,
+                  nitroFireBadge
+                );
+
+                const seen = new Set<string>();
+                badges = badges.filter((badge: any) => {
+                  const id = String(badge?.id || badge?.key || "").toLowerCase();
+                  if (!id) return true;
+                  if (seen.has(id)) return false;
+                  seen.add(id);
+                  return true;
+                });
+
+                const getPriority = (badge: any) => {
+                  const id = String(badge?.id || badge?.key || "").toLowerCase();
+
+                  if (id === "staff") return 1;
+                  if (id === "custom_staff") return 2;
+                  if (id === "custom_experiment") return 3;
+                  if (id === "custom_alpha") return 4;
+                  if (id === "custom_beta") return 5;
+                  if (id === "nitro_fire") return 6;
+                  if (id.includes("partner")) return 7;
+                  if (id.includes("certified_moderator")) return 8;
+                  if (id.includes("hypesquad")) return 9;
+                  if (id === "bug_hunter") return 10;
+                  if (id.includes("developer")) return 11;
+                  if (id.includes("early")) return 12;
+                  if (id.includes("booster")) return 13;
+
+                  return 99;
+                };
+
+                badges.sort((a, b) => getPriority(a) - getPriority(b));
+
+                profile.badges = badges;
 
                 return profile;
               } catch (err) {
-                console.error("[Badge Profile Patch Error]:", err);
+                console.error("[Badge Patch Error]:", err);
                 return profile;
               }
             };
@@ -306,7 +363,9 @@ export default {
               UserProfileStore.getUserProfile = origGetProfile;
             });
           }
-        } catch (e) {}
+        } catch (e) {
+          console.error("[Plugin Init Error]:", e);
+        }
       }
     } catch (e) {
       console.error("[Plugin Main Load Error]:", e);
