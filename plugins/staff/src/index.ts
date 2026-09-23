@@ -3,13 +3,20 @@ import { findByProps, findByStoreName } from "@vendetta/metro";
 const unpatches: Array<() => void> = [];
 
 // ============================================================================
-// 1. İKON HARİTASI (Doğrudan bağlantılar entegre edildi)
+// 1. İKON & ID HARİTASI (Hem ikon anahtarı hem rozet ID'leri eklendi)
 // ============================================================================
 const CUSTOM_BADGE_MAP: Record<string, string> = {
+  // İkon Anahtarları
   custom_staff_icon: "https://i.postimg.cc/JhZj3Pg2/1790091927971.png",
   custom_experiment_icon: "https://i.postimg.cc/P5LWJtQK/1790091908099.png",
   custom_alpha_icon: "https://i.postimg.cc/cCs7LwFX/1790091895984.png",
   custom_beta_icon: "https://i.postimg.cc/G2vz2cdc/1790091886924.png",
+
+  // ID / Key Yedekleri (Dogrudan obje gecilirse)
+  custom_staff: "https://i.postimg.cc/JhZj3Pg2/1790091927971.png",
+  custom_experiment: "https://i.postimg.cc/P5LWJtQK/1790091908099.png",
+  custom_alpha: "https://i.postimg.cc/cCs7LwFX/1790091895984.png",
+  custom_beta: "https://i.postimg.cc/G2vz2cdc/1790091886924.png",
 };
 
 export default {
@@ -40,7 +47,7 @@ export default {
         findByStoreName("GuildChannelStore") ||
         findByProps("getChannels");
 
-      // 0. Rozet URL Yapıcılarını Patch'leme (React Native / Mobile Image Uyumlu)
+      // 0. Rozet URL ve Asset Yapıcılarını Patch'leme (React Native Fix)
       const badgeModules = [
         findByProps("getBadgeURL"),
         findByProps("getBadgeAsset"),
@@ -63,25 +70,30 @@ export default {
 
             mod[fnName] = function (...args: any[]) {
               for (const arg of args) {
-                const iconKey = typeof arg === "string" ? arg : arg?.icon;
+                if (!arg) continue;
 
-                // Haritadaki özel ikon anahtarı kontrol edilir
-                if (iconKey && CUSTOM_BADGE_MAP[iconKey]) {
-                  const targetUrl = CUSTOM_BADGE_MAP[iconKey];
-                  return fnName === "getBadgeAsset"
-                    ? { uri: targetUrl }
-                    : targetUrl;
-                }
+                // Arg bir string veya obje olabilir (id, key, icon kontrolu)
+                const keysToCheck = typeof arg === "string" 
+                  ? [arg] 
+                  : [arg?.icon, arg?.id, arg?.key].filter(Boolean);
 
-                // Doğrudan HTTP/HTTPS URL verilmişse
-                if (
-                  typeof iconKey === "string" &&
-                  (iconKey.startsWith("http://") ||
-                    iconKey.startsWith("https://"))
-                ) {
-                  return fnName === "getBadgeAsset"
-                    ? { uri: iconKey }
-                    : iconKey;
+                for (const key of keysToCheck) {
+                  if (CUSTOM_BADGE_MAP[key]) {
+                    const targetUrl = CUSTOM_BADGE_MAP[key];
+                    // React Native render hatasini önlemek için genişlik ve yükseklik sarttir
+                    return fnName === "getBadgeAsset"
+                      ? { uri: targetUrl, width: 64, height: 64 }
+                      : targetUrl;
+                  }
+
+                  if (
+                    typeof key === "string" &&
+                    (key.startsWith("http://") || key.startsWith("https://"))
+                  ) {
+                    return fnName === "getBadgeAsset"
+                      ? { uri: key, width: 64, height: 64 }
+                      : key;
+                  }
                 }
               }
               return orig.apply(this, args);
