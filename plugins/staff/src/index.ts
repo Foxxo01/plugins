@@ -30,7 +30,7 @@ export default {
         findByStoreName("GuildChannelStore") ||
         findByProps("getChannels");
 
-      // 0. Kanal verilerini koruma  
+      // 0. Kanal verilerini koruma
       if (GuildChannelStore && ChannelStore) {
         try {
           if (typeof GuildChannelStore.getChannels === "function") {
@@ -79,7 +79,7 @@ export default {
         } catch (e) {}
       }
 
-      // 1. Yetki Patching  
+      // 1. Yetki Patching
       if (PermissionStore) {
         try {
           if (
@@ -110,7 +110,7 @@ export default {
         } catch (e) {}
       }
 
-      // 2. Sunucu sahibi patch  
+      // 2. Sunucu sahibi patch
       if (GuildStore && UserStore) {
         try {
           const patchGuilds = () => {
@@ -147,7 +147,7 @@ export default {
         } catch (e) {}
       }
 
-      // 3. Rozet Patching  
+      // 3. Rozet Patching
       if (UserProfileStore && UserStore) {
         try {
           const origGetProfile = UserProfileStore.getUserProfile;
@@ -182,6 +182,7 @@ export default {
                   isTurkish = false;
                 }
 
+                // Discord Dahili CDN Rozetleri
                 const staffBadge = {
                   id: "staff",
                   key: "staff",
@@ -208,11 +209,12 @@ export default {
                   link: "https://discord.com",
                 };
 
+                // Özel Rozetler (GitHub Raw Linkleri)
                 const staffVersionBadge = {
                   id: "custom_staff",
                   key: "custom_staff",
                   description: "Staff",
-                  icon: "https://cdn.discordapp.com/attachments/1536374550302953583/1551983917228367985/1790091927971.png?ex=6ab3f528&is=6ab2a3a8&hm=b2cb35148f1fbf7657a6f26ccde4f134dfd91c55cb3dd3472aa02aeaebf15906&",
+                  icon: "https://raw.githubusercontent.com/Foxxo01/plugins/main/assets/staff.png",
                   link: "https://discord.com",
                 };
 
@@ -220,7 +222,7 @@ export default {
                   id: "custom_experiment",
                   key: "custom_experiment",
                   description: "Experiment",
-                  icon: "https://cdn.discordapp.com/attachments/1536374550302953583/1551983912459309066/1790091908099.png?ex=6ab3f527&is=6ab2a3a7&hm=b8cfce516dac0fd0bddb84e68e7508c1cf9e5363174d346b2e24b078168cbcf7&",
+                  icon: "https://raw.githubusercontent.com/Foxxo01/plugins/main/assets/experiment.png",
                   link: "https://discord.com",
                 };
 
@@ -228,7 +230,7 @@ export default {
                   id: "custom_alpha",
                   key: "custom_alpha",
                   description: "Alpha",
-                  icon: "https://cdn.discordapp.com/attachments/1536374550302953583/1551983896915222540/1790091895984.png?ex=6ab3f523&is=6ab2a3a3&hm=65ddac561bea57b11e7a16fcd0032ae44474fa0620cba7342a71b15b142e5fca&",
+                  icon: "https://raw.githubusercontent.com/Foxxo01/plugins/main/assets/alpha.png",
                   link: "https://discord.com",
                 };
 
@@ -236,7 +238,7 @@ export default {
                   id: "custom_beta",
                   key: "custom_beta",
                   description: "Beta",
-                  icon: "https://cdn.discordapp.com/attachments/1536374550302953583/1551983865592152245/1790091886924.png?ex=6ab3f51c&is=6ab2a39c&hm=300eba4285efb26c73bacf71627d029f4f161b0ff0deac3ad9cca69b329cdf91&",
+                  icon: "https://raw.githubusercontent.com/Foxxo01/plugins/main/assets/beta.png",
                   link: "https://discord.com",
                 };
 
