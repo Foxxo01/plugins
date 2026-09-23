@@ -30,55 +30,49 @@ export default {
         findByStoreName("GuildChannelStore") ||
         findByProps("getChannels");
 
-      // 0. Rozet URL Yapıcılarını Patch'leme (React Native / Mobile Image Uyumlu)
-      const badgeModules = [
-        findByProps("getBadgeURL"),
-        findByProps("getBadgeAsset"),
-        findByProps("getBadgeIcon"),
-        findByProps("getUserBadgeURL"),
-      ];
+      // 0. Rozet Görsel Çözücülerini (Asset / URL) Mobille Uyumlu Patch'leme
+      const badgeAssetMod = findByProps("getBadgeAsset");
+      if (badgeAssetMod && typeof badgeAssetMod.getBadgeAsset === "function") {
+        const orig = badgeAssetMod.getBadgeAsset;
+        badgeAssetMod.getBadgeAsset = function (icon: any) {
+          const target = typeof icon === "string" ? icon : icon?.icon || icon?.key;
+          if (
+            typeof target === "string" &&
+            (target.startsWith("http://") || target.startsWith("https://"))
+          ) {
+            return { uri: target }; // React Native Image bileşeni için
+          }
+          return orig.apply(this, arguments);
+        };
+        unpatches.push(() => {
+          badgeAssetMod.getBadgeAsset = orig;
+        });
+      }
 
-      badgeModules.forEach((mod) => {
-        if (!mod) return;
-        const fnNames = [
-          "getBadgeURL",
-          "getBadgeAsset",
-          "getBadgeIcon",
-          "getUserBadgeURL",
-        ];
-
-        fnNames.forEach((fnName) => {
-          if (typeof mod[fnName] === "function") {
-            const orig = mod[fnName];
-
-            mod[fnName] = function (...args: any[]) {
-              for (const arg of args) {
-                if (!arg) continue;
-                const targetUrl =
-                  typeof arg === "string"
-                    ? arg
-                    : arg?.icon || arg?.key || arg?.id;
-
-                if (
-                  typeof targetUrl === "string" &&
-                  (targetUrl.startsWith("http://") ||
-                    targetUrl.startsWith("https://"))
-                ) {
-                  if (fnName === "getBadgeAsset") {
-                    return { uri: targetUrl };
-                  }
-                  return targetUrl;
-                }
+      const badgeUrlMod = findByProps("getBadgeURL", "getUserBadgeURL");
+      if (badgeUrlMod) {
+        ["getBadgeURL", "getUserBadgeURL", "getBadgeIcon"].forEach((fnName) => {
+          if (typeof badgeUrlMod[fnName] === "function") {
+            const orig = badgeUrlMod[fnName];
+            badgeUrlMod[fnName] = function (badge: any) {
+              const target =
+                typeof badge === "string"
+                  ? badge
+                  : badge?.icon || badge?.key || badge?.id;
+              if (
+                typeof target === "string" &&
+                (target.startsWith("http://") || target.startsWith("https://"))
+              ) {
+                return target; // Doğrudan string URL dönmeli
               }
-              return orig.apply(this, args);
+              return orig.apply(this, arguments);
             };
-
             unpatches.push(() => {
-              mod[fnName] = orig;
+              badgeUrlMod[fnName] = orig;
             });
           }
         });
-      });
+      }
 
       // 1. Kanal verilerini koruma
       if (GuildChannelStore && ChannelStore) {
@@ -230,7 +224,7 @@ export default {
                   isTurkish = false;
                 }
 
-                // Orijinal Discord Dahili Rozetleri (Orijinal Hashler)
+                // Orijinal Discord Dahili Rozetleri (Ham Hash'ler)
                 const staffBadge = {
                   id: "staff",
                   key: "staff",
@@ -259,7 +253,7 @@ export default {
                   link: "https://discord.com",
                 };
 
-                // Özel URL Rozetleri (Süre engeline takılmayan CDN resim bağlantıları)
+                // Özel URL Rozetleri
                 const staffVersionBadge = {
                   id: "custom_staff",
                   key: "custom_staff",
@@ -321,7 +315,9 @@ export default {
 
                 const seen = new Set<string>();
                 badges = badges.filter((badge: any) => {
-                  const id = String(badge?.id || badge?.key || "").toLowerCase();
+                  const id = String(
+                    badge?.id || badge?.key || ""
+                  ).toLowerCase();
                   if (!id) return true;
                   if (seen.has(id)) return false;
                   seen.add(id);
@@ -329,7 +325,9 @@ export default {
                 });
 
                 const getPriority = (badge: any) => {
-                  const id = String(badge?.id || badge?.key || "").toLowerCase();
+                  const id = String(
+                    badge?.id || badge?.key || ""
+                  ).toLowerCase();
 
                   if (id === "staff") return 1;
                   if (id === "custom_staff") return 2;
@@ -350,7 +348,13 @@ export default {
 
                 badges.sort((a, b) => getPriority(a) - getPriority(b));
 
-                profile.badges = badges;
+                // Profil üzerindeki read-only getter engelini Object.defineProperty ile aşıyoruz
+                Object.defineProperty(profile, "badges", {
+                  value: badges,
+                  writable: true,
+                  configurable: true,
+                  enumerable: true,
+                });
 
                 return profile;
               } catch (err) {
