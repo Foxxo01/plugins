@@ -30,7 +30,19 @@ export default {
         findByStoreName("GuildChannelStore") ||
         findByProps("getChannels");
 
-      // 0. Rozet Görsel Modüllerini BAĞIMSIZ Olarak Patch'leme
+      const AssetUtils = findByProps("getAssetIDByName");
+
+      const getIconAsset = (iconName: string) => {
+        if (!AssetUtils?.getAssetIDByName) return iconName;
+        return (
+          AssetUtils.getAssetIDByName(iconName) ||
+          AssetUtils.getAssetIDByName(iconName.replace("Icon", "")) ||
+          AssetUtils.getAssetIDByName(`ic_${iconName.toLowerCase()}`) ||
+          iconName
+        );
+      };
+
+      // 0. Dahili UI İkonlarını Rozet Sistemine Bağlayan Patch
       const patchBadgeModule = (modName: string) => {
         const mod = findByProps(modName);
         if (!mod || typeof mod[modName] !== "function") return;
@@ -40,28 +52,18 @@ export default {
           const arg = args[0];
           if (!arg) return orig.apply(this, args);
 
-          // 1. Argüman direkt URL string'i ise
-          if (
-            typeof arg === "string" &&
-            (arg.startsWith("http://") || arg.startsWith("https://"))
-          ) {
-            if (modName === "getBadgeAsset") {
-              return { uri: arg, width: 24, height: 24 };
-            }
-            return arg;
-          }
+          const iconName = typeof arg === "string" ? arg : arg?.icon || arg?.key;
 
-          // 2. Argüman badge nesnesi ise
-          if (typeof arg === "object" && arg !== null) {
-            const targetUrl = arg.icon || arg.key;
-            if (
-              typeof targetUrl === "string" &&
-              (targetUrl.startsWith("http://") || targetUrl.startsWith("https://"))
-            ) {
+          if (
+            typeof iconName === "string" &&
+            (iconName.endsWith("Icon") || iconName.startsWith("ic_"))
+          ) {
+            const assetId = getIconAsset(iconName);
+            if (typeof assetId === "number" || typeof assetId === "string") {
               if (modName === "getBadgeAsset") {
-                return { uri: targetUrl, width: 24, height: 24 };
+                return assetId;
               }
-              return targetUrl;
+              return assetId;
             }
           }
 
@@ -73,7 +75,6 @@ export default {
         });
       };
 
-      // Discord'un rozet resimlerini çekmek için kullandığı tüm olası fonksiyonları ayrı ayrı yamala
       ["getBadgeAsset", "getUserBadgeURL", "getBadgeURL", "getBadgeIcon"].forEach(
         (fnName) => patchBadgeModule(fnName)
       );
@@ -228,7 +229,6 @@ export default {
                   isTurkish = false;
                 }
 
-                // Orijinal Discord Dahili Rozetleri (Ham Hash'ler)
                 const staffBadge = {
                   id: "staff",
                   key: "staff",
@@ -257,28 +257,11 @@ export default {
                   link: "https://discord.com",
                 };
 
-                // Özel URL Rozetleri
-                const staffVersionBadge = {
-                  id: "custom_staff",
-                  key: "custom_staff",
-                  description: "Yetkilendirilmiş",
-                  icon: "https://i.postimg.cc/JhZj3Pg2/1790091927971.png",
-                  link: "https://discord.com",
-                };
-
-                const experimentVersionBadge = {
-                  id: "custom_experiment",
-                  key: "custom_experiment",
-                  description: "Deneysel",
-                  icon: "https://i.postimg.cc/P5LWJtQK/1790091908099.png",
-                  link: "https://discord.com",
-                };
-
                 const alphaVersionBadge = {
                   id: "custom_alpha",
                   key: "custom_alpha",
                   description: "Alfa",
-                  icon: "https://i.postimg.cc/cCs7LwFX/1790091895984.png",
+                  icon: "PencilSparkleIcon",
                   link: "https://discord.com",
                 };
 
@@ -286,7 +269,23 @@ export default {
                   id: "custom_beta",
                   key: "custom_beta",
                   description: "Beta",
-                  icon: "https://i.postimg.cc/G2vz2cdc/1790091886924.png",
+                  icon: "WrenchIcon",
+                  link: "https://discord.com",
+                };
+
+                const experimentVersionBadge = {
+                  id: "custom_experiment",
+                  key: "custom_experiment",
+                  description: "Deneysel",
+                  icon: "BeakerIcon",
+                  link: "https://discord.com",
+                };
+
+                const staffVersionBadge = {
+                  id: "custom_staff",
+                  key: "custom_staff",
+                  description: "Yetkilendirilmiş",
+                  icon: "ShieldIcon",
                   link: "https://discord.com",
                 };
 
@@ -343,9 +342,6 @@ export default {
                   if (id.includes("certified_moderator")) return 8;
                   if (id.includes("hypesquad")) return 9;
                   if (id === "bug_hunter") return 10;
-                  if (id.includes("developer")) return 11;
-                  if (id.includes("early")) return 12;
-                  if (id.includes("booster")) return 13;
 
                   return 99;
                 };
