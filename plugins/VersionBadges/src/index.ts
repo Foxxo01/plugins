@@ -4,51 +4,39 @@
 
   const unpatches = [];
 
-  // Sadece senin 4 Özel Rozetin
-  const CUSTOM_BADGES = [
+  // TEST Rozetleri (Discord'un resmi dahili rozetleri)
+  const TEST_BADGES = [
     {
-      id: "custom_staff",
-      key: "custom_staff",
-      description: "Yetkilendirilmiş",
-      icon: "https://i.postimg.cc/JhZj3Pg2/1790091927971.png",
-      link: "https://discord.com",
+      id: "staff",
+      key: "staff",
+      description: "Discord Staff (Test)",
+      icon: "5e74e9b61934fc1f67c65515d1f7e60d",
     },
     {
-      id: "custom_experiment",
-      key: "custom_experiment",
-      description: "Deneysel",
-      icon: "https://i.postimg.cc/P5LWJtQK/1790091908099.png",
-      link: "https://discord.com",
+      id: "active_developer",
+      key: "active_developer",
+      description: "Active Developer (Test)",
+      icon: "848f2a5846061099f089978b7b7d416f",
     },
     {
-      id: "custom_alpha",
-      key: "custom_alpha",
-      description: "Alfa",
-      icon: "https://i.postimg.cc/cCs7LwFX/1790091895984.png",
-      link: "https://discord.com",
-    },
-    {
-      id: "custom_beta",
-      key: "custom_beta",
-      description: "Beta",
-      icon: "https://i.postimg.cc/G2vz2cdc/1790091886924.png",
-      link: "https://discord.com",
+      id: "hypesquad_house_1",
+      key: "hypesquad_house_1",
+      description: "HypeSquad Bravery (Test)",
+      icon: "8a8822382770222a7f53be55c3c0a525",
     },
   ];
 
-  const injectBadges = (badges) => {
+  const injectTestBadges = (badges) => {
     const list = Array.isArray(badges) ? badges : [];
     const clean = list.filter(
-      (b) => !CUSTOM_BADGES.some((cb) => cb.id === (b?.id || b?.key))
+      (b) => !TEST_BADGES.some((tb) => tb.id === (b?.id || b?.key))
     );
-    return [...clean, ...CUSTOM_BADGES];
+    return [...clean, ...TEST_BADGES];
   };
 
   return {
     onLoad: () => {
       try {
-        console.log("[CustomBadges] Eklenti başlatılıyor...");
-
         const UserStore =
           findByProps("getCurrentUser", "getUser") ||
           findByStoreName("UserStore");
@@ -59,46 +47,7 @@
 
         const FluxDispatcher = findByProps("dispatch", "subscribe");
 
-        // 1. Resim / Asset Çözücü Patch (React Native URI desteği)
-        const badgeResolvers = [
-          "getBadgeAsset",
-          "getUserBadgeURL",
-          "getBadgeURL",
-          "getBadgeIcon",
-        ];
-
-        badgeResolvers.forEach((fnName) => {
-          const mod = findByProps(fnName);
-          if (!mod || typeof mod[fnName] !== "function") return;
-
-          unpatches.push(
-            patcher.instead(mod, fnName, (args, orig) => {
-              const arg = args[0];
-              const iconStr =
-                typeof arg === "string"
-                  ? arg
-                  : arg?.icon || arg?.key || arg?.id;
-
-              if (typeof iconStr === "string" && iconStr.startsWith("http")) {
-                return fnName === "getBadgeAsset" ? { uri: iconStr } : iconStr;
-              }
-
-              const found = CUSTOM_BADGES.find(
-                (b) =>
-                  b.id === iconStr || b.key === iconStr || b.icon === iconStr
-              );
-              if (found) {
-                return fnName === "getBadgeAsset"
-                  ? { uri: found.icon }
-                  : found.icon;
-              }
-
-              return orig.apply(mod, args);
-            })
-          );
-        });
-
-        // 2. Flux Dispatcher Patch (API'den profil verisi geldiği an)
+        // 1. API Verisi Geldiğinde Yakalama (Flux)
         if (FluxDispatcher) {
           unpatches.push(
             patcher.before(FluxDispatcher, "dispatch", (args) => {
@@ -108,21 +57,20 @@
                 const targetId = event.user?.id || event.userId;
 
                 if (!myId || targetId === myId) {
-                  if (event.badges) event.badges = injectBadges(event.badges);
+                  if (event.badges) event.badges = injectTestBadges(event.badges);
                   if (event.userProfile)
-                    event.userProfile.badges = injectBadges(
+                    event.userProfile.badges = injectTestBadges(
                       event.userProfile.badges
                     );
                   if (event.profile)
-                    event.profile.badges = injectBadges(event.profile.badges);
-                  console.log("[CustomBadges] Flux event ile rozetler eklendi!");
+                    event.profile.badges = injectTestBadges(event.profile.badges);
                 }
               }
             })
           );
         }
 
-        // 3. UserProfileStore Patch (Profil istendiği an)
+        // 2. Profile Store Okunduğunda Yakalama
         if (UserProfileStore) {
           ["getUserProfile", "getProfile"].forEach((fnName) => {
             if (typeof UserProfileStore[fnName] === "function") {
@@ -135,16 +83,15 @@
 
                   if (!myId || targetId === myId) {
                     try {
-                      profile.badges = injectBadges(profile.badges);
+                      profile.badges = injectTestBadges(profile.badges);
                     } catch (_) {
                       Object.defineProperty(profile, "badges", {
-                        value: injectBadges(profile.badges),
+                        value: injectTestBadges(profile.badges),
                         writable: true,
                         configurable: true,
                         enumerable: true,
                       });
                     }
-                    console.log("[CustomBadges] Store üzerinden rozetler eklendi!");
                   }
                   return profile;
                 })
@@ -152,10 +99,8 @@
             }
           });
         }
-
-        console.log("[CustomBadges] Yamalar başarıyla yüklendi.");
       } catch (e) {
-        console.error("[CustomBadges Error]:", e);
+        console.error("[Badge Test Error]:", e);
       }
     },
 
@@ -165,7 +110,6 @@
           if (typeof u === "function") u();
         } catch (_) {}
       });
-      console.log("[CustomBadges] Kaldırıldı.");
     },
   };
 })();
