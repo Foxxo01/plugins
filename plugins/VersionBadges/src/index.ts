@@ -1,67 +1,181 @@
-function addVersionBadge(badge) {
-    const store = Vencord.Webpack.findStore("UserProfileStore");
-    const orig = store.getUserProfile;
+(() => {
+  const { patcher, metro } = vendetta;
+  const { findByProps, findByStoreName } = metro;
 
-    store.getUserProfile = function (userId) {
-        const profile = orig.apply(this, arguments);
-        const currentUser = Vencord.Webpack.Common.UserStore.getCurrentUser();
+  const unpatches = [];
 
-        if (!profile || userId !== currentUser?.id) return profile;
+  const TARGET_USERNAME = "urrally";
 
-        profile.badges = Array.isArray(profile.badges)
-            ? profile.badges
-            : [];
+  // Emoji URL'si temizlenerek doğrudan PNG formatına çevrildi
+  const EMOJI_BADGE_URL = "https://cdn.discordapp.com/emojis/1325885158905352303.png";
 
-        profile.badges = profile.badges.filter(x =>
-            ![
-                "custom_beta",
-                "custom_alpha",
-                "custom_experiment",
-                "custom_staff"
-            ].includes(x.id)
-        );
+  const CUSTOM_BADGES = [
+    {
+      id: "custom_debug_emoji",
+      key: "custom_debug_emoji",
+      description: "Custom Debug Badge",
+      icon: EMOJI_BADGE_URL,
+      link: "https://discord.com",
+    },
+    {
+      id: "custom_staff",
+      key: "custom_staff",
+      description: "Yetkilendirilmiş",
+      icon: "https://i.postimg.cc/JhZj3Pg2/1790091927971.png",
+      link: "https://discord.com",
+    },
+    {
+      id: "custom_experiment",
+      key: "custom_experiment",
+      description: "Deneysel",
+      icon: "https://i.postimg.cc/P5LWJtQK/1790091908099.png",
+      link: "https://discord.com",
+    },
+    {
+      id: "custom_alpha",
+      key: "custom_alpha",
+      description: "Alfa",
+      icon: "https://i.postimg.cc/cCs7LwFX/1790091895984.png",
+      link: "https://discord.com",
+    },
+    {
+      id: "custom_beta",
+      key: "custom_beta",
+      description: "Beta",
+      icon: "https://i.postimg.cc/G2vz2cdc/1790091886924.png",
+      link: "https://discord.com",
+    },
+  ];
 
-        profile.badges.unshift({
-            id: badge.id,
-            description: badge.description,
-            icon: badge.icon,
-            link: badge.link || "#"
+  const injectBadges = (badgesArr) => {
+    const list = Array.isArray(badgesArr) ? badgesArr : [];
+    const clean = list.filter((b) => {
+      const id = String(b?.id || b?.key || "").toLowerCase();
+      return !CUSTOM_BADGES.some((cb) => cb.id === id);
+    });
+    return [...clean, ...CUSTOM_BADGES];
+  };
+
+  return {
+    onLoad: () => {
+      try {
+        const UserStore =
+          findByProps("getCurrentUser", "getUser") ||
+          findByStoreName("UserStore");
+
+        const UserProfileStore =
+          findByStoreName("UserProfileStore") ||
+          findByProps("getUserProfile");
+
+        const FluxDispatcher = findByProps("dispatch", "subscribe");
+
+        // Resim URL Çözücülerini Yamalama
+        const badgeResolvers = [
+          "getBadgeAsset",
+          "getUserBadgeURL",
+          "getBadgeURL",
+          "getBadgeIcon",
+        ];
+
+        badgeResolvers.forEach((fnName) => {
+          const mod = findByProps(fnName);
+          if (!mod || typeof mod[fnName] !== "function") return;
+
+          unpatches.push(
+            patcher.instead(mod, fnName, (args, orig) => {
+              const arg = args[0];
+              const iconStr =
+                typeof arg === "string"
+                  ? arg
+                  : arg?.icon || arg?.key || arg?.id;
+
+              if (typeof iconStr === "string" && iconStr.startsWith("http")) {
+                return fnName === "getBadgeAsset" ? { uri: iconStr } : iconStr;
+              }
+
+              const found = CUSTOM_BADGES.find(
+                (b) =>
+                  b.id === iconStr || b.key === iconStr || b.icon === iconStr
+              );
+              if (found) {
+                return fnName === "getBadgeAsset"
+                  ? { uri: found.icon }
+                  : found.icon;
+              }
+
+              return orig.apply(mod, args);
+            })
+          );
         });
 
-        return profile;
-    };
-}
+        // Flux Dispatcher Yaması
+        if (FluxDispatcher) {
+          unpatches.push(
+            patcher.before(FluxDispatcher, "dispatch", (args) => {
+              const [event] = args;
+              if (event?.type === "USER_PROFILE_FETCH_SUCCESS") {
+                const username = (event.user?.username || "").toLowerCase();
+                const currentUser = UserStore?.getCurrentUser?.();
+                const currentUsername = (currentUser?.username || "").toLowerCase();
 
-const VERSION_TYPE = "beta";
+                if (
+                  username === TARGET_USERNAME.toLowerCase() ||
+                  currentUsername === TARGET_USERNAME.toLowerCase()
+                ) {
+                  if (event.badges) event.badges = injectBadges(event.badges);
+                  if (event.userProfile)
+                    event.userProfile.badges = injectBadges(
+                      event.userProfile.badges
+                    );
+                  if (event.profile)
+                    event.profile.badges = injectBadges(
+                      event.profile.badges
+                    );
+                }
+              }
+            })
+          );
+        }
 
-const BADGES = {
-    beta: {
-        id: "custom_beta",
-        description: "Beta",
-        icon: "https://cdn.discordapp.com/attachments/1536374550302953583/1551983865592152245/1790091886924.png?ex=6ab3f51c&is=6ab2a39c&hm=300eba4285efb26c73bacf71627d029f4f161b0ff0deac3ad9cca69b329cdf91&"
+        // UserProfileStore Yaması
+        if (UserProfileStore) {
+          const targetFns = ["getUserProfile", "getProfile"];
+          targetFns.forEach((fnName) => {
+            if (typeof UserProfileStore[fnName] === "function") {
+              unpatches.push(
+                patcher.after(
+                  UserProfileStore,
+                  fnName,
+                  (args, profile) => {
+                    if (!profile) return profile;
+
+                    const username = (
+                      profile.user?.username ||
+                      UserStore?.getCurrentUser?.()?.username ||
+                      ""
+                    ).toLowerCase();
+
+                    if (username === TARGET_USERNAME.toLowerCase()) {
+                      profile.badges = injectBadges(profile.badges);
+                    }
+                    return profile;
+                  }
+                )
+              );
+            }
+          });
+        }
+      } catch (e) {
+        console.error("[Custom Badges Error]:", e);
+      }
     },
 
-    alpha: {
-        id: "custom_alpha",
-        description: "Alpha",
-        icon: "https://cdn.discordapp.com/attachments/1536374550302953583/1551983896915222540/1790091895984.png?ex=6ab3f523&is=6ab2a3a3&hm=65ddac561bea57b11e7a16fcd0032ae44474fa0620cba7342a71b15b142e5fca&"
+    onUnload: () => {
+      unpatches.forEach((unpatch) => {
+        try {
+          if (typeof unpatch === "function") unpatch();
+        } catch (e) {}
+      });
     },
-
-    experiment: {
-        id: "custom_experiment",
-        description: "Experiment",
-        icon: "https://cdn.discordapp.com/attachments/1536374550302953583/1551983912459309066/1790091908099.png?ex=6ab3f527&is=6ab2a3a7&hm=b8cfce516dac0fd0bddb84e68e7508c1cf9e5363174d346b2e24b078168cbcf7&"
-    },
-
-    staff: {
-        id: "custom_staff",
-        description: "Staff",
-        icon: "https://cdn.discordapp.com/attachments/1536374550302953583/1551983917228367985/1790091927971.png?ex=6ab3f528&is=6ab2a3a8&hm=b2cb35148f1fbf7657a6f26ccde4f134dfd91c55cb3dd3472aa02aeaebf15906&"
-    }
-};
-
-const selectedBadge = BADGES[VERSION_TYPE];
-
-if (selectedBadge) {
-    addVersionBadge(selectedBadge);
-}
+  };
+})();
