@@ -4,19 +4,8 @@
 
   const unpatches = [];
 
-  const TARGET_USERNAME = "urrally";
-
-  // Emoji URL'si temizlenerek doğrudan PNG formatına çevrildi
-  const EMOJI_BADGE_URL = "https://cdn.discordapp.com/emojis/1325885158905352303.png";
-
+  // Sadece senin 4 Özel Rozetin
   const CUSTOM_BADGES = [
-    {
-      id: "custom_debug_emoji",
-      key: "custom_debug_emoji",
-      description: "Custom Debug Badge",
-      icon: EMOJI_BADGE_URL,
-      link: "https://discord.com",
-    },
     {
       id: "custom_staff",
       key: "custom_staff",
@@ -47,18 +36,19 @@
     },
   ];
 
-  const injectBadges = (badgesArr) => {
-    const list = Array.isArray(badgesArr) ? badgesArr : [];
-    const clean = list.filter((b) => {
-      const id = String(b?.id || b?.key || "").toLowerCase();
-      return !CUSTOM_BADGES.some((cb) => cb.id === id);
-    });
+  const injectBadges = (badges) => {
+    const list = Array.isArray(badges) ? badges : [];
+    const clean = list.filter(
+      (b) => !CUSTOM_BADGES.some((cb) => cb.id === (b?.id || b?.key))
+    );
     return [...clean, ...CUSTOM_BADGES];
   };
 
   return {
     onLoad: () => {
       try {
+        console.log("[CustomBadges] Eklenti başlatılıyor...");
+
         const UserStore =
           findByProps("getCurrentUser", "getUser") ||
           findByStoreName("UserStore");
@@ -69,7 +59,7 @@
 
         const FluxDispatcher = findByProps("dispatch", "subscribe");
 
-        // Resim URL Çözücülerini Yamalama
+        // 1. Resim / Asset Çözücü Patch (React Native URI desteği)
         const badgeResolvers = [
           "getBadgeAsset",
           "getUserBadgeURL",
@@ -108,74 +98,74 @@
           );
         });
 
-        // Flux Dispatcher Yaması
+        // 2. Flux Dispatcher Patch (API'den profil verisi geldiği an)
         if (FluxDispatcher) {
           unpatches.push(
             patcher.before(FluxDispatcher, "dispatch", (args) => {
               const [event] = args;
               if (event?.type === "USER_PROFILE_FETCH_SUCCESS") {
-                const username = (event.user?.username || "").toLowerCase();
-                const currentUser = UserStore?.getCurrentUser?.();
-                const currentUsername = (currentUser?.username || "").toLowerCase();
+                const myId = UserStore?.getCurrentUser?.()?.id;
+                const targetId = event.user?.id || event.userId;
 
-                if (
-                  username === TARGET_USERNAME.toLowerCase() ||
-                  currentUsername === TARGET_USERNAME.toLowerCase()
-                ) {
+                if (!myId || targetId === myId) {
                   if (event.badges) event.badges = injectBadges(event.badges);
                   if (event.userProfile)
                     event.userProfile.badges = injectBadges(
                       event.userProfile.badges
                     );
                   if (event.profile)
-                    event.profile.badges = injectBadges(
-                      event.profile.badges
-                    );
+                    event.profile.badges = injectBadges(event.profile.badges);
+                  console.log("[CustomBadges] Flux event ile rozetler eklendi!");
                 }
               }
             })
           );
         }
 
-        // UserProfileStore Yaması
+        // 3. UserProfileStore Patch (Profil istendiği an)
         if (UserProfileStore) {
-          const targetFns = ["getUserProfile", "getProfile"];
-          targetFns.forEach((fnName) => {
+          ["getUserProfile", "getProfile"].forEach((fnName) => {
             if (typeof UserProfileStore[fnName] === "function") {
               unpatches.push(
-                patcher.after(
-                  UserProfileStore,
-                  fnName,
-                  (args, profile) => {
-                    if (!profile) return profile;
+                patcher.after(UserProfileStore, fnName, (args, profile) => {
+                  if (!profile) return profile;
 
-                    const username = (
-                      profile.user?.username ||
-                      UserStore?.getCurrentUser?.()?.username ||
-                      ""
-                    ).toLowerCase();
+                  const myId = UserStore?.getCurrentUser?.()?.id;
+                  const targetId = args[0] || profile.user?.id;
 
-                    if (username === TARGET_USERNAME.toLowerCase()) {
+                  if (!myId || targetId === myId) {
+                    try {
                       profile.badges = injectBadges(profile.badges);
+                    } catch (_) {
+                      Object.defineProperty(profile, "badges", {
+                        value: injectBadges(profile.badges),
+                        writable: true,
+                        configurable: true,
+                        enumerable: true,
+                      });
                     }
-                    return profile;
+                    console.log("[CustomBadges] Store üzerinden rozetler eklendi!");
                   }
-                )
+                  return profile;
+                })
               );
             }
           });
         }
+
+        console.log("[CustomBadges] Yamalar başarıyla yüklendi.");
       } catch (e) {
-        console.error("[Custom Badges Error]:", e);
+        console.error("[CustomBadges Error]:", e);
       }
     },
 
     onUnload: () => {
-      unpatches.forEach((unpatch) => {
+      unpatches.forEach((u) => {
         try {
-          if (typeof unpatch === "function") unpatch();
-        } catch (e) {}
+          if (typeof u === "function") u();
+        } catch (_) {}
       });
+      console.log("[CustomBadges] Kaldırıldı.");
     },
   };
 })();
