@@ -257,37 +257,7 @@ export default {
                   link: "https://discord.com",
                 };
 
-                const alphaVersionBadge = {
-                  id: "custom_alpha",
-                  key: "custom_alpha",
-                  description: "Alfa",
-                  icon: "PencilSparkleIcon",
-                  link: "https://discord.com",
-                };
-
-                const betaVersionBadge = {
-                  id: "custom_beta",
-                  key: "custom_beta",
-                  description: "Beta",
-                  icon: "WrenchIcon",
-                  link: "https://discord.com",
-                };
-
-                const experimentVersionBadge = {
-                  id: "custom_experiment",
-                  key: "custom_experiment",
-                  description: "Deneysel",
-                  icon: "BeakerIcon",
-                  link: "https://discord.com",
-                };
-
-                const staffVersionBadge = {
-                  id: "custom_staff",
-                  key: "custom_staff",
-                  description: "Yetkilendirilmiş",
-                  icon: "ShieldIcon",
-                  link: "https://discord.com",
-                };
+                
 
                 const existingBadges = Array.isArray(profile.badges)
                   ? [...profile.badges]
