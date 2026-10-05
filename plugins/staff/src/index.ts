@@ -269,18 +269,10 @@ export default {
                     id !== "staff" &&
                     id !== "bug_hunter" &&
                     id !== "nitro_fire" &&
-                    id !== "custom_staff" &&
-                    id !== "custom_experiment" &&
-                    id !== "custom_alpha" &&
-                    id !== "custom_beta"
                   );
                 });
 
                 badges.push(
-                  staffVersionBadge,
-                  experimentVersionBadge,
-                  alphaVersionBadge,
-                  betaVersionBadge,
                   staffBadge,
                   bugHunterBadge,
                   nitroFireBadge
