@@ -43,12 +43,12 @@ export default {
       };
 
       // 0. Dahili UI İkonlarını Rozet Sistemine Bağlayan Patch
-      const patchBadgeModule = (modName: string) => {
-        const mod = findByProps(modName);
-        if (!mod || typeof mod[modName] !== "function") return;
+      const patchBadgeModule = (fnName: string) => {
+        const mod = findByProps(fnName);
+        if (!mod || typeof mod[fnName] !== "function") return;
 
-        const orig = mod[modName];
-        mod[modName] = function (...args: any[]) {
+        const orig = mod[fnName];
+        mod[fnName] = function (...args: any[]) {
           const arg = args[0];
           if (!arg) return orig.apply(this, args);
 
@@ -59,10 +59,7 @@ export default {
             (iconName.endsWith("Icon") || iconName.startsWith("ic_"))
           ) {
             const assetId = getIconAsset(iconName);
-            if (typeof assetId === "number" || typeof assetId === "string") {
-              if (modName === "getBadgeAsset") {
-                return assetId;
-              }
+            if (assetId !== undefined && assetId !== null) {
               return assetId;
             }
           }
@@ -71,7 +68,7 @@ export default {
         };
 
         unpatches.push(() => {
-          mod[modName] = orig;
+          mod[fnName] = orig;
         });
       };
 
@@ -189,7 +186,7 @@ export default {
         } catch (e) {}
       }
 
-      // 4. Rozet Ekleme Patching
+      // 4. Rozet Ekleme Patching (DÜZELTİLDİ)
       if (UserProfileStore && UserStore) {
         try {
           const origGetProfile = UserProfileStore.getUserProfile;
@@ -203,6 +200,7 @@ export default {
               try {
                 const currentUser = UserStore.getCurrentUser?.();
 
+                // Sadece kendi profilimize yönlendiriyoruz
                 if (!currentUser?.id || userId !== currentUser.id) {
                   return profile;
                 }
@@ -257,18 +255,17 @@ export default {
                   link: "https://discord.com",
                 };
 
-                
-
                 const existingBadges = Array.isArray(profile.badges)
                   ? [...profile.badges]
                   : [];
 
+                // HATALI KISIM DÜZELTİLDİ: "&&" sonundaki yarım kalan ifade temizlendi
                 let badges = existingBadges.filter((b: any) => {
                   const id = String(b?.id || b?.key || "").toLowerCase();
                   return (
                     id !== "staff" &&
                     id !== "bug_hunter" &&
-                    id !== "nitro_fire" &&
+                    id !== "nitro_fire"
                   );
                 });
 
@@ -310,6 +307,7 @@ export default {
 
                 badges.sort((a, b) => getPriority(a) - getPriority(b));
 
+                // Nesne üzerindeki badges dizisini güvenli şekilde tanımlıyoruz
                 Object.defineProperty(profile, "badges", {
                   value: badges,
                   writable: true,
