@@ -22,6 +22,10 @@ export default {
         findByStoreName("UserProfileStore") ||
         findByProps("getUserProfile");
 
+      const GuildMemberStore =
+        findByStoreName("GuildMemberStore") ||
+        findByProps("getMember", "getSelfMember");
+
       const ChannelStore =
         findByStoreName("ChannelStore") ||
         findByProps("getChannel", "hasChannel");
@@ -76,60 +80,58 @@ export default {
         (fnName) => patchBadgeModule(fnName)
       );
 
-      // 1. Kanal verilerini koruma
-      if (GuildChannelStore && ChannelStore) {
+      // 1. Üye Yetkileri ve Rol Patch (EKLENDİ: Arayüzde Yetkilerin Aktifleşmesi İçin)
+      if (GuildMemberStore && UserStore) {
         try {
-          if (typeof GuildChannelStore.getChannels === "function") {
-            const origGetChannels = GuildChannelStore.getChannels;
+          const origGetMember = GuildMemberStore.getMember;
+          const origGetSelfMember = GuildMemberStore.getSelfMember;
 
-            GuildChannelStore.getChannels = function (guildId: string) {
-              const res = origGetChannels.apply(this, arguments);
+          if (typeof origGetMember === "function") {
+            GuildMemberStore.getMember = function (guildId: string, userId: string) {
+              const member = origGetMember.apply(this, arguments);
+              const currentUser = UserStore.getCurrentUser?.();
 
-              if (res) {
-                const list =
-                  res.SELECTABLE ||
-                  (Array.isArray(res) ? res : Object.values(res));
-
-                list.forEach((c: any) => {
-                  const item = c?.channel || c;
-
-                  if (item?.id) {
-                    const cacheChannel = ChannelStore.getChannel(item.id);
-
-                    if (
-                      cacheChannel?.name &&
-                      (!item.name ||
-                        item.name.includes("erişim") ||
-                        item.name.includes("hidden"))
-                    ) {
-                      if (c.channel) {
-                        c.channel.name = cacheChannel.name;
-                      } else {
-                        c.name = cacheChannel.name;
-                      }
-                    }
-                  }
-                });
+              if (member && currentUser?.id && userId === currentUser.id) {
+                return {
+                  ...member,
+                  permissions: "8589934591", // FULL ADMINISTRATOR PERMISSIONS
+                };
               }
-
-              return res;
+              return member;
             };
 
             unpatches.push(() => {
-              GuildChannelStore.getChannels = origGetChannels;
+              GuildMemberStore.getMember = origGetMember;
+            });
+          }
+
+          if (typeof origGetSelfMember === "function") {
+            GuildMemberStore.getSelfMember = function (guildId: string) {
+              const member = origGetSelfMember.apply(this, arguments);
+              if (member) {
+                return {
+                  ...member,
+                  permissions: "8589934591",
+                };
+              }
+              return member;
+            };
+
+            unpatches.push(() => {
+              GuildMemberStore.getSelfMember = origGetSelfMember;
             });
           }
         } catch (e) {}
       }
 
-      // 2. Yetki Patching
+      // 2. Yetki Patching (PermissionStore)
       if (PermissionStore) {
         try {
           if (typeof PermissionStore.computePermissions === "function") {
             const origCompute = PermissionStore.computePermissions;
 
             PermissionStore.computePermissions = function () {
-              return BigInt(~0);
+              return BigInt("8589934591"); // Tüm izinlerin biti
             };
 
             unpatches.push(() => {
@@ -151,16 +153,12 @@ export default {
         } catch (e) {}
       }
 
-      // 3. Sunucu sahibi patch
+      // 3. Sunucu Sahibi Patching
       if (GuildStore && UserStore) {
         try {
           const patchGuilds = () => {
             const guilds = GuildStore.getGuilds?.() || {};
-
-            const list = Array.isArray(guilds)
-              ? guilds
-              : Object.values(guilds);
-
+            const list = Array.isArray(guilds) ? guilds : Object.values(guilds);
             const user = UserStore.getCurrentUser?.();
 
             if (user?.id) {
@@ -186,7 +184,7 @@ export default {
         } catch (e) {}
       }
 
-      // 4. Rozet Ekleme Patching (DÜZELTİLDİ)
+      // 4. Rozet Ekleme Patching
       if (UserProfileStore && UserStore) {
         try {
           const origGetProfile = UserProfileStore.getUserProfile;
@@ -200,28 +198,15 @@ export default {
               try {
                 const currentUser = UserStore.getCurrentUser?.();
 
-                // Sadece kendi profilimize yönlendiriyoruz
                 if (!currentUser?.id || userId !== currentUser.id) {
                   return profile;
                 }
 
                 let isTurkish = false;
                 try {
-                  const getStore =
-                    typeof findByStoreName === "function"
-                      ? findByStoreName
-                      : null;
-                  const getProps =
-                    typeof findByProps === "function"
-                      ? findByProps
-                      : null;
-
                   const LocaleStore =
-                    getStore?.("LocaleStore") || getProps?.("locale");
-
-                  const locale = String(
-                    LocaleStore?.locale || "en"
-                  ).toLowerCase();
+                    findByStoreName("LocaleStore") || findByProps("locale");
+                  const locale = String(LocaleStore?.locale || "en").toLowerCase();
                   isTurkish = locale.startsWith("tr");
                 } catch (_) {
                   isTurkish = false;
@@ -231,9 +216,7 @@ export default {
                   id: "staff",
                   key: "staff",
                   flags: 1,
-                  description: isTurkish
-                    ? "Discord Personeli"
-                    : "Discord Staff",
+                  description: isTurkish ? "Discord Personeli" : "Discord Staff",
                   icon: "5e74e9b61934fc1f67c65515d1f7e60d",
                   link: "https://discord.com",
                 };
@@ -259,7 +242,6 @@ export default {
                   ? [...profile.badges]
                   : [];
 
-                // HATALI KISIM DÜZELTİLDİ: "&&" sonundaki yarım kalan ifade temizlendi
                 let badges = existingBadges.filter((b: any) => {
                   const id = String(b?.id || b?.key || "").toLowerCase();
                   return (
@@ -269,45 +251,17 @@ export default {
                   );
                 });
 
-                badges.push(
-                  staffBadge,
-                  bugHunterBadge,
-                  nitroFireBadge
-                );
+                badges.push(staffBadge, bugHunterBadge, nitroFireBadge);
 
                 const seen = new Set<string>();
                 badges = badges.filter((badge: any) => {
-                  const id = String(
-                    badge?.id || badge?.key || ""
-                  ).toLowerCase();
+                  const id = String(badge?.id || badge?.key || "").toLowerCase();
                   if (!id) return true;
                   if (seen.has(id)) return false;
                   seen.add(id);
                   return true;
                 });
 
-                const getPriority = (badge: any) => {
-                  const id = String(
-                    badge?.id || badge?.key || ""
-                  ).toLowerCase();
-
-                  if (id === "staff") return 1;
-                  if (id === "custom_staff") return 2;
-                  if (id === "custom_experiment") return 3;
-                  if (id === "custom_alpha") return 4;
-                  if (id === "custom_beta") return 5;
-                  if (id === "nitro_fire") return 6;
-                  if (id.includes("partner")) return 7;
-                  if (id.includes("certified_moderator")) return 8;
-                  if (id.includes("hypesquad")) return 9;
-                  if (id === "bug_hunter") return 10;
-
-                  return 99;
-                };
-
-                badges.sort((a, b) => getPriority(a) - getPriority(b));
-
-                // Nesne üzerindeki badges dizisini güvenli şekilde tanımlıyoruz
                 Object.defineProperty(profile, "badges", {
                   value: badges,
                   writable: true,
@@ -317,7 +271,6 @@ export default {
 
                 return profile;
               } catch (err) {
-                console.error("[Badge Patch Error]:", err);
                 return profile;
               }
             };
@@ -326,12 +279,10 @@ export default {
               UserProfileStore.getUserProfile = origGetProfile;
             });
           }
-        } catch (e) {
-          console.error("[Plugin Init Error]:", e);
-        }
+        } catch (e) {}
       }
     } catch (e) {
-      console.error("[Plugin Main Load Error]:", e);
+      console.error("[Plugin Load Error]:", e);
     }
   },
 
