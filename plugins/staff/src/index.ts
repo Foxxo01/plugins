@@ -80,7 +80,7 @@ export default {
         (fnName) => patchBadgeModule(fnName)
       );
 
-      // 1. Üye Yetkileri ve Rol Patch (EKLENDİ: Arayüzde Yetkilerin Aktifleşmesi İçin)
+      // 1. Üye Yetkileri Patch (Arayüzde admin görünümü sağlar)
       if (GuildMemberStore && UserStore) {
         try {
           const origGetMember = GuildMemberStore.getMember;
@@ -94,7 +94,7 @@ export default {
               if (member && currentUser?.id && userId === currentUser.id) {
                 return {
                   ...member,
-                  permissions: "8589934591", // FULL ADMINISTRATOR PERMISSIONS
+                  permissions: "8589934591",
                 };
               }
               return member;
@@ -131,7 +131,7 @@ export default {
             const origCompute = PermissionStore.computePermissions;
 
             PermissionStore.computePermissions = function () {
-              return BigInt("8589934591"); // Tüm izinlerin biti
+              return BigInt("8589934591");
             };
 
             unpatches.push(() => {
@@ -184,7 +184,7 @@ export default {
         } catch (e) {}
       }
 
-      // 4. Rozet Ekleme Patching
+      // 4. Rozet Ekleme ve Resmi Hiyerarşi Sıralaması
       if (UserProfileStore && UserStore) {
         try {
           const origGetProfile = UserProfileStore.getUserProfile;
@@ -253,6 +253,7 @@ export default {
 
                 badges.push(staffBadge, bugHunterBadge, nitroFireBadge);
 
+                // Yinelenen rozetleri temizleme
                 const seen = new Set<string>();
                 badges = badges.filter((badge: any) => {
                   const id = String(badge?.id || badge?.key || "").toLowerCase();
@@ -261,6 +262,27 @@ export default {
                   seen.add(id);
                   return true;
                 });
+
+                // DISCORD RESMİ ROZET HİYERARŞİSİ (Soldan Sağa)
+                const getPriority = (badge: any) => {
+                  const id = String(badge?.id || badge?.key || "").toLowerCase();
+
+                  if (id === "staff") return 1;
+                  if (id.includes("partner")) return 2;
+                  if (id.includes("hypesquad_events")) return 3;
+                  if (id.includes("bug_hunter_level_2")) return 4;
+                  if (id === "bug_hunter" || id.includes("bug_hunter_level_1")) return 5;
+                  if (id.includes("certified_moderator")) return 6;
+                  if (id.includes("active_developer")) return 7;
+                  if (id.includes("early_supporter")) return 8;
+                  if (id.includes("hypesquad_house") || id.includes("hypesquad")) return 9;
+                  if (id === "nitro_fire" || id === "nitro") return 10;
+                  if (id.includes("boost") || id.includes("guild_subscriber")) return 11;
+
+                  return 99;
+                };
+
+                badges.sort((a, b) => getPriority(a) - getPriority(b));
 
                 Object.defineProperty(profile, "badges", {
                   value: badges,
