@@ -1,1 +1,14 @@
-
+{
+    "name": "Auto Quest",
+    "description": "It detects and automatically completes tasks.",
+    "authors": [
+        {
+            "name": "URRally",
+            "id": "758758036562509855"
+        }
+    ],
+    "main": "src/index.ts",
+    "vendetta": {
+        "icon": ""
+    }
+}
