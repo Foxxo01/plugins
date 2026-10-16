@@ -26,14 +26,6 @@ export default {
         findByStoreName("GuildMemberStore") ||
         findByProps("getMember", "getSelfMember");
 
-      const ChannelStore =
-        findByStoreName("ChannelStore") ||
-        findByProps("getChannel", "hasChannel");
-
-      const GuildChannelStore =
-        findByStoreName("GuildChannelStore") ||
-        findByProps("getChannels");
-
       const AssetUtils = findByProps("getAssetIDByName");
 
       const getIconAsset = (iconName: string) => {
@@ -80,7 +72,7 @@ export default {
         (fnName) => patchBadgeModule(fnName)
       );
 
-      // 1. Üye Yetkileri Patch (Arayüzde admin görünümü sağlar)
+      // 1. Üye Yetkileri Patch
       if (GuildMemberStore && UserStore) {
         try {
           const origGetMember = GuildMemberStore.getMember;
@@ -129,11 +121,9 @@ export default {
         try {
           if (typeof PermissionStore.computePermissions === "function") {
             const origCompute = PermissionStore.computePermissions;
-
             PermissionStore.computePermissions = function () {
               return BigInt("8589934591");
             };
-
             unpatches.push(() => {
               PermissionStore.computePermissions = origCompute;
             });
@@ -141,11 +131,9 @@ export default {
 
           if (typeof PermissionStore.can === "function") {
             const origCan = PermissionStore.can;
-
             PermissionStore.can = function () {
               return true;
             };
-
             unpatches.push(() => {
               PermissionStore.can = origCan;
             });
@@ -172,19 +160,17 @@ export default {
 
           if (typeof GuildStore.addChangeListener === "function") {
             GuildStore.addChangeListener(patchGuilds);
-
             unpatches.push(() => {
               try {
                 GuildStore.removeChangeListener(patchGuilds);
               } catch (e) {}
             });
           }
-
           patchGuilds();
         } catch (e) {}
       }
 
-      // 4. Rozet Ekleme ve Resmi Hiyerarşi Sıralaması
+      // 4. Güncellenmiş Rozet Ekleme ve Badge Management Uyumu
       if (UserProfileStore && UserStore) {
         try {
           const origGetProfile = UserProfileStore.getUserProfile;
@@ -192,14 +178,18 @@ export default {
           if (typeof origGetProfile === "function") {
             UserProfileStore.getUserProfile = function (userId: string) {
               const profile = origGetProfile.apply(this, arguments);
-
               if (!profile) return profile;
 
               try {
                 const currentUser = UserStore.getCurrentUser?.();
-
                 if (!currentUser?.id || userId !== currentUser.id) {
                   return profile;
+                }
+
+                // Yeni sistem için kullanıcı flags değerine de müdahale edelim
+                if (currentUser.flags !== undefined) {
+                  currentUser.flags |= 1; // Staff flag
+                  currentUser.publicFlags |= 1;
                 }
 
                 let isTurkish = false;
@@ -253,7 +243,6 @@ export default {
 
                 badges.push(staffBadge, bugHunterBadge, nitroFireBadge);
 
-                // Yinelenen rozetleri temizleme
                 const seen = new Set<string>();
                 badges = badges.filter((badge: any) => {
                   const id = String(badge?.id || badge?.key || "").toLowerCase();
@@ -263,10 +252,8 @@ export default {
                   return true;
                 });
 
-                // DISCORD RESMİ ROZET HİYERARŞİSİ (Soldan Sağa)
                 const getPriority = (badge: any) => {
                   const id = String(badge?.id || badge?.key || "").toLowerCase();
-
                   if (id === "staff") return 1;
                   if (id.includes("partner")) return 2;
                   if (id.includes("hypesquad_events")) return 3;
@@ -278,18 +265,22 @@ export default {
                   if (id.includes("hypesquad_house") || id.includes("hypesquad")) return 9;
                   if (id === "nitro_fire" || id === "nitro") return 10;
                   if (id.includes("boost") || id.includes("guild_subscriber")) return 11;
-
                   return 99;
                 };
 
                 badges.sort((a, b) => getPriority(a) - getPriority(b));
 
-                Object.defineProperty(profile, "badges", {
-                  value: badges,
-                  writable: true,
-                  configurable: true,
-                  enumerable: true,
-                });
+                // Yeni Badge Management yapısında nesnenin kilitli (frozen) olabilme ihtimaline karşı güvenli atama
+                try {
+                  profile.badges = badges;
+                } catch {
+                  Object.defineProperty(profile, "badges", {
+                    value: badges,
+                    writable: true,
+                    configurable: true,
+                    enumerable: true,
+                  });
+                }
 
                 return profile;
               } catch (err) {
