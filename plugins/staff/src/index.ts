@@ -72,6 +72,21 @@ export default {
         (fnName) => patchBadgeModule(fnName)
       );
 
+      // ActionSheet (Rozet/Profil Menüleri) Entegrasyonu
+      try {
+        const ActionSheet = findByProps("openActionSheet", "hideActionSheet");
+        if (ActionSheet && typeof ActionSheet.openActionSheet === "function") {
+          const origOpen = ActionSheet.openActionSheet;
+          ActionSheet.openActionSheet = function (...args: any[]) {
+            // ActionSheet açıldığında tetiklenen tetikleyici
+            return origOpen.apply(this, args);
+          };
+          unpatches.push(() => {
+            ActionSheet.openActionSheet = origOpen;
+          });
+        }
+      } catch (e) {}
+
       // 1. Üye Yetkileri Patch
       if (GuildMemberStore && UserStore) {
         try {
@@ -170,7 +185,7 @@ export default {
         } catch (e) {}
       }
 
-      // 4. Güncellenmiş Rozet Ekleme ve Badge Management Uyumu
+      // 4. Rozet Ekleme, Bayraklar ve Badge Management Uyumu
       if (UserProfileStore && UserStore) {
         try {
           const origGetProfile = UserProfileStore.getUserProfile;
@@ -186,9 +201,8 @@ export default {
                   return profile;
                 }
 
-                // Yeni sistem için kullanıcı flags değerine de müdahale edelim
                 if (currentUser.flags !== undefined) {
-                  currentUser.flags |= 1; // Staff flag
+                  currentUser.flags |= 1;
                   currentUser.publicFlags |= 1;
                 }
 
@@ -270,7 +284,6 @@ export default {
 
                 badges.sort((a, b) => getPriority(a) - getPriority(b));
 
-                // Yeni Badge Management yapısında nesnenin kilitli (frozen) olabilme ihtimaline karşı güvenli atama
                 try {
                   profile.badges = badges;
                 } catch {
