@@ -18,74 +18,9 @@ export default {
         findByProps("getGuilds", "getGuildsArray") ||
         findByStoreName("GuildStore");
 
-      const UserProfileStore =
-        findByStoreName("UserProfileStore") ||
-        findByProps("getUserProfile");
-
       const GuildMemberStore =
         findByStoreName("GuildMemberStore") ||
         findByProps("getMember", "getSelfMember");
-
-      const AssetUtils = findByProps("getAssetIDByName");
-
-      const getIconAsset = (iconName: string) => {
-        if (!AssetUtils?.getAssetIDByName) return iconName;
-        return (
-          AssetUtils.getAssetIDByName(iconName) ||
-          AssetUtils.getAssetIDByName(iconName.replace("Icon", "")) ||
-          AssetUtils.getAssetIDByName(`ic_${iconName.toLowerCase()}`) ||
-          iconName
-        );
-      };
-
-      // 0. Dahili UI İkonlarını Rozet Sistemine Bağlayan Patch
-      const patchBadgeModule = (fnName: string) => {
-        const mod = findByProps(fnName);
-        if (!mod || typeof mod[fnName] !== "function") return;
-
-        const orig = mod[fnName];
-        mod[fnName] = function (...args: any[]) {
-          const arg = args[0];
-          if (!arg) return orig.apply(this, args);
-
-          const iconName = typeof arg === "string" ? arg : arg?.icon || arg?.key;
-
-          if (
-            typeof iconName === "string" &&
-            (iconName.endsWith("Icon") || iconName.startsWith("ic_"))
-          ) {
-            const assetId = getIconAsset(iconName);
-            if (assetId !== undefined && assetId !== null) {
-              return assetId;
-            }
-          }
-
-          return orig.apply(this, args);
-        };
-
-        unpatches.push(() => {
-          mod[fnName] = orig;
-        });
-      };
-
-      ["getBadgeAsset", "getUserBadgeURL", "getBadgeURL", "getBadgeIcon"].forEach(
-        (fnName) => patchBadgeModule(fnName)
-      );
-
-      // ActionSheet (Rozet/Profil Menüleri) Entegrasyonu
-      try {
-        const ActionSheet = findByProps("openActionSheet", "hideActionSheet");
-        if (ActionSheet && typeof ActionSheet.openActionSheet === "function") {
-          const origOpen = ActionSheet.openActionSheet;
-          ActionSheet.openActionSheet = function (...args: any[]) {
-            // ActionSheet açıldığında tetiklenen tetikleyici
-            return origOpen.apply(this, args);
-          };
-          unpatches.push(() => {
-            ActionSheet.openActionSheet = origOpen;
-          });
-        }
-      } catch (e) {}
 
       // 1. Üye Yetkileri Patch
       if (GuildMemberStore && UserStore) {
@@ -184,3 +119,16 @@ export default {
           patchGuilds();
         } catch (e) {}
       }
+    } catch (e) {
+      console.error("[Plugin Load Error]:", e);
+    }
+  },
+
+  onUnload: () => {
+    unpatches.forEach((unpatch) => {
+      try {
+        unpatch?.();
+      } catch (e) {}
+    });
+  },
+};
